@@ -9,20 +9,26 @@
 #define LOG_VERSION "1.1"
 #define MAX_STRING 1024
 
-/* statistics node */
+/* aggregation and action filter */
+typedef struct nfd_track_s {
+
+	char fields[MAX_STRING];	/* fields string from config file */
+	lnf_mem_t *mem;				/* aggregation unit */
+	lnf_filter_t *filter;		/* action filter */
+
+	struct nfd_track_s  *next_track;
+
+} nfd_track_t;
+
+
+/* profile parameters */
 typedef struct nfd_profile_s {
 
-	char *name;						/* profile name */
+	char name[MAX_STRING];			/* profile name */
 	lnf_filter_t *input_filter;		/* input filter */
-	lnf_mem_t *main_mem;			/* general aggregation unit */
-	unsigned long limit_bps;		/* set limits */
-	unsigned long limit_pps;
-	double treshold;   				/* treshold (0.78 = 78%) */
+	nfd_track_t *root_track;		/* pointer to root aggegation */
 	int window_size; 	 			/* window size to evaluate (in seconds) */
 	int stop_delay;					/* delay before shaping rule is removed */
-
-	unsigned long int stats_bytes;		/* real byte/packet count */
-	unsigned long int stats_pkts;
 
 	int last_updated;		/* when the statistics were updated */
 	int window_reset;		/* when the current window started */
@@ -45,6 +51,7 @@ typedef struct nfd_options_s {
 	int last_expire_check;			/* timestam of last expire check */
 	char config_file[MAX_STRING];	/* config gile name */
 	char pid_file[MAX_STRING];		/* file with PID */
+	char input_files[MAX_STRING];	/* fifo with list of input files */
 	int pid_file_fromarg;			/* pid file set on command line  */
 	char exec_start[MAX_STRING];	/* command to exec new rule */
 	char exec_stop[MAX_STRING];		/* command to exec to remove rule */
@@ -55,8 +62,9 @@ typedef struct nfd_options_s {
 
 
 int nfd_parse_config(nfd_options_t *opt);
-nfd_profile_t * nfd_profile_new(nfd_options_t *opt);
+nfd_profile_t * nfd_profile_new(nfd_options_t *opt, const char *name);
 int nfd_profile_set_filter(nfd_profile_t *nfd_profile, char *expr);
+int nf_profile_add_track(nfd_profile_t *nfd_profile, char *fields, char *filter);
 
 
 //int exec_node_cmd(options_t *opt, stat_node_t *stat_node, action_t action);

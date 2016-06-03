@@ -3,6 +3,7 @@
 #include "conf.h"
 #include "sysdep.h"
 #include <time.h>
+#include <fcntl.h>
 //#include "dataflow.h"
 
 //#include <pcap.h>
@@ -104,6 +105,86 @@ int mkpidfile(nfd_options_t *opt) {
 
 }
 
+/* add flow into pfifiles */
+int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) { 
+
+	nfd_track_t *trackp;
+
+	if (profp->input_filter != NULL) {
+		/* record do not match profile filter */
+		if (!lnf_filter_match(profp->input_filter, recp)) {
+			return 0;
+		}
+	}
+
+	trackp = profp->root_track;
+
+	while (trackp != NULL) {
+		msg(MSG_DEBUG, "Adding record profile: %s, agg: %s", profp->name, trackp->fields);
+		if (trackp->mem != NULL) {
+			lnf_mem_write(trackp->mem, recp);
+		}
+
+		trackp = trackp->next_track;
+	}
+
+	return 1;
+
+}
+
+int process_file(nfd_options_t *opt, const char *filename) {
+
+	lnf_file_t *filep;
+	lnf_rec_t *recp;
+	nfd_profile_t *profp;
+
+	msg(MSG_DEBUG, "Processing file %s", filename);
+	if (lnf_open(&filep, filename, LNF_READ, NULL) != LNF_OK) {
+		msg(MSG_ERROR, "Can not open file '%s'", filename);
+		return 0;
+	}
+
+	lnf_rec_init(&recp);
+
+	while (lnf_read(filep, recp) != LNF_EOF) {
+
+		profp = opt->root_profile;
+
+		while (profp != NULL) {
+			nfd_profile_add_flow(profp, recp);
+			profp = profp->next_profile;
+		}	
+		
+	}
+
+	lnf_close(filep);
+
+	return 1;
+
+}
+
+/* read data loop */
+int read_data_loop(nfd_options_t *opt) {
+    int fd, nread;
+    char buf[MAX_STRING];
+
+	if ((fd = open(opt->input_files, O_RDONLY)) < 0) {
+		msg(MSG_ERROR, "Failed to open FIFO %s\n", opt->input_files);
+        return 0;
+    }
+
+	while(1) {
+        memset(buf, 0x0, sizeof(buf));
+        nread = read(fd, buf, sizeof(buf) - 1);
+		if (nread > 0) {
+			buf[strlen(buf) - 1] = '\0';
+			process_file(opt, buf);
+		}
+    }
+
+    return 0;
+}
+
 
 int main(int argc, char *argv[]) {
     extern int optind;
@@ -120,6 +201,7 @@ int main(int argc, char *argv[]) {
 
 
 	strcpy(opt.config_file, "./nfddos.conf");	
+	strcpy(opt.input_files, "./nfddos_fifo");	
 	strcpy(opt.pid_file, "/var/run/nfddos.pid");	
 	strcpy(opt.exec_start, "./nfddos-start.sh");	
 	strcpy(opt.exec_stop, "./nfddos-stop.sh");	
@@ -153,5 +235,6 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
+	read_data_loop(&opt);
 }
 

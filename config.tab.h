@@ -60,19 +60,21 @@ extern int yydebug;
      OPTIONSTOK = 269,
      DEBUGTOK = 270,
      PIDTOK = 271,
-     LEVELTOK = 272,
-     COMMANDTOK = 273,
-     NEWTOK = 274,
-     DELTOK = 275,
-     ACTIONTOK = 276,
-     WINDOWTOK = 277,
-     SIZETOK = 278,
-     EXPIRETOK = 279,
-     DELAYTOK = 280,
-     INPUTTOK = 281,
-     NUMBER = 282,
-     FACTOR = 283,
-     STRING = 284
+     ACTIONTOK = 272,
+     WHENTOK = 273,
+     TRACKTOK = 274,
+     LEVELTOK = 275,
+     COMMANDTOK = 276,
+     NEWTOK = 277,
+     DELTOK = 278,
+     WINDOWTOK = 279,
+     SIZETOK = 280,
+     EXPIRETOK = 281,
+     DELAYTOK = 282,
+     INPUTTOK = 283,
+     NUMBER = 284,
+     FACTOR = 285,
+     STRING = 286
    };
 #endif
 
@@ -84,13 +86,14 @@ typedef union YYSTYPE
 #line 62 "config.y"
 
 	long int	number;	
-	char 		string[1024];
+	char 		string[MAX_STRING];
 	void		*node;
 	nfd_profile_t	*nfd_profile;
+	nfd_track_t		*nfd_track;
 
 
 /* Line 2053 of yacc.c  */
-#line 94 "config.tab.h"
+#line 97 "config.tab.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

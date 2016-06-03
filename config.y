@@ -61,19 +61,21 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 
 %union {
 	long int	number;	
-	char 		string[1024];
+	char 		string[MAX_STRING];
 	void		*node;
 	nfd_profile_t	*nfd_profile;
+	nfd_track_t		*nfd_track;
 };
 
 %token OBRACE EBRACE SEMICOLON
 %token PROFILETOK LIMITTOK FILTERTOK
 %token BITPSTOK PPSTOK FILETOK STARTTOK STOPTOK
-%token OPTIONSTOK DEBUGTOK PIDTOK
-%token LEVELTOK COMMANDTOK NEWTOK DELTOK ACTIONTOK
+%token OPTIONSTOK DEBUGTOK PIDTOK ACTIONTOK WHENTOK TRACKTOK
+%token LEVELTOK COMMANDTOK NEWTOK DELTOK 
 %token WINDOWTOK SIZETOK EXPIRETOK DELAYTOK INPUTTOK
 %token <number> NUMBER FACTOR
 %token <string> STRING
+%type <string> action
 %type <nfd_profile> rule rules ruleparam ruleparams 
 /* %type <string> options optionparams option */
 
@@ -104,19 +106,20 @@ rules: /* empty */
 	| rules rule;
 
 rule: 
-	PROFILETOK OBRACE { $<nfd_profile>$ = nfd_profile_new(opt); if ($<nfd_profile>$ == NULL) { YYABORT; }; } ruleparams EBRACE	{ ;  } 
+	PROFILETOK STRING OBRACE { $<nfd_profile>$ = nfd_profile_new(opt, $2); if ($<nfd_profile>$ == NULL) { YYABORT; }; } ruleparams EBRACE	{ ;  } 
 	;
 
 ruleparams: /* empty */ 
 	| ruleparams { $<nfd_profile>$ = $<nfd_profile>0; } ruleparam SEMICOLON;
 	;
 
-
+action: 
+	ACTIONTOK WHENTOK OBRACE STRING EBRACE { strncpy($$, $4, MAX_STRING); } ;
+	
 ruleparam:
-	| LIMITTOK NUMBER FACTOR BITPSTOK 	{ $<nfd_profile>0->limit_bps = $2 * $3; }
-	| LIMITTOK NUMBER BITPSTOK 			{ $<nfd_profile>0->limit_bps = $2; }
-	| LIMITTOK NUMBER FACTOR PPSTOK 	{ $<nfd_profile>0->limit_pps = $2 * $3; }
-	| LIMITTOK NUMBER PPSTOK 			{ $<nfd_profile>0->limit_pps = $2; }
 	| INPUTTOK FILTERTOK OBRACE STRING EBRACE	{ nfd_profile_set_filter($<nfd_profile>0, $4); }
+	| action							{ if (!nf_profile_add_track($<nfd_profile>0,  NULL,  $1))   { YYABORT; }; }
+	| TRACKTOK STRING 					{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    NULL)) { YYABORT; }; }
+	| TRACKTOK STRING action			{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    $3))   { YYABORT; }; }
 	; 
 %% 

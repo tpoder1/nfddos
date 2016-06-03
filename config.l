@@ -35,11 +35,6 @@
 
 %%
 #.*				{ ; }	// comments 
-\"(.+)\"			{
-					strncpy(yylval->string, yytext + 1, MAX_STRING - 1);
-					yylval->string[yyleng - 2] = '\0';
-					return STRING;
-				}
 \{				return OBRACE;
 \}				return EBRACE;
 ;				return SEMICOLON;
@@ -58,8 +53,14 @@ expire			return EXPIRETOK;
 delay			return DELAYTOK; 
 filter			return FILTERTOK; 
 profile			return PROFILETOK; 
-limit			return LIMITTOK; 
 input			return INPUTTOK; 
+when			return WHENTOK; 
+track			return TRACKTOK; 
+\"(\\.|[^"])*\"	{
+					strncpy(yylval->string, yytext + 1, MAX_STRING - 1);
+					yylval->string[yyleng - 2] = '\0';
+					return STRING;
+				}
 bps				return BITPSTOK; 
 b\/s			return BITPSTOK; 
 pps				return PPSTOK; 
