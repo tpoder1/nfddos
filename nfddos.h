@@ -30,9 +30,9 @@ typedef struct nfd_profile_s {
 	int window_size; 	 			/* window size to evaluate (in seconds) */
 	int stop_delay;					/* delay before shaping rule is removed */
 
-	int last_updated;		/* when the statistics were updated */
-	int window_reset;		/* when the current window started */
-	int time_reported;		/* when last report was done - 0 if not reported */
+//	uint64_t last_updated;			/* when the statistics were updated */
+	uint64_t window_start;			/* when the current window started */
+//	int time_reported;		/* when last report was done - 0 if not reported */
 
 	struct nfd_profile_s  *next_profile;
 

@@ -105,10 +105,51 @@ int mkpidfile(nfd_options_t *opt) {
 
 }
 
+/* eval all tracks in profile and execute action of conditions are meet  */
+int nfd_profile_eval_profile_tracks(nfd_profile_t *profp) { 
+
+	nfd_track_t *trackp;
+	lnf_rec_t *recp;
+	lnf_mem_cursor_t *cursor;
+
+	trackp = profp->root_track;
+
+	lnf_rec_init(&recp);
+
+	while (trackp != NULL) {
+		if (trackp->mem != NULL && trackp->filter != NULL) {
+			msg(MSG_DEBUG, "Evaluating track in profile: %s, track: %s", profp->name, trackp->fields);
+	
+			/* wal via all records */	
+			lnf_mem_first_c(trackp->mem, &cursor);	
+
+			while (cursor != NULL) {
+
+				lnf_mem_read_c(trackp->mem, cursor, recp);
+				if (lnf_filter_match(trackp->filter, recp)) {
+					msg(MSG_DEBUG, "Matched condition in profile: %s, track: %s", profp->name, trackp->fields);
+
+					/* execute external script and finish the loop */
+
+					
+				}
+
+				lnf_mem_next_c(trackp->mem, &cursor);
+			}
+
+		}
+
+		trackp = trackp->next_track;
+	}
+
+	return 1;
+}
+
 /* add flow into pfifiles */
 int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) { 
 
 	nfd_track_t *trackp;
+	uint64_t first_ts;
 
 	if (profp->input_filter != NULL) {
 		/* record do not match profile filter */
@@ -120,12 +161,30 @@ int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 	trackp = profp->root_track;
 
 	while (trackp != NULL) {
-		msg(MSG_DEBUG, "Adding record profile: %s, agg: %s", profp->name, trackp->fields);
+//		msg(MSG_DEBUG, "Adding record profile: %s, agg: %s", profp->name, trackp->fields);
 		if (trackp->mem != NULL) {
 			lnf_mem_write(trackp->mem, recp);
 		}
 
 		trackp = trackp->next_track;
+	}
+
+	/* window evaluation */
+	lnf_rec_fget(recp, LNF_FLD_FIRST, &first_ts);
+
+	/* we moved back in time */
+	if (first_ts < profp->window_start) {
+		msg(MSG_DEBUG, "Flow moved back in time in: %s", profp->name);
+		/* update window start then */
+		profp->window_start = first_ts;
+	}
+
+	/* enought data in window */	
+	if (profp->window_start + profp->window_size * 1000 < first_ts) {
+
+		nfd_profile_eval_profile_tracks(profp);
+
+		profp->window_start = first_ts;
 	}
 
 	return 1;
