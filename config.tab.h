@@ -1,21 +1,24 @@
-/* A Bison parser, made by GNU Bison 2.7.12-4996.  */
+/* A Bison parser, made by GNU Bison 2.3.  */
 
-/* Bison interface for Yacc-like parsers in C
-   
-      Copyright (C) 1984, 1989-1990, 2000-2013 Free Software Foundation, Inc.
-   
-   This program is free software: you can redistribute it and/or modify
+/* Skeleton interface for Bison's Yacc-like parsers in C
+
+   Copyright (C) 1984, 1989, 1990, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
-   
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, you may create a larger work that contains
    part or all of the Bison parser skeleton and distribute that work
@@ -26,19 +29,9 @@
    special exception, which will cause the skeleton and the resulting
    Bison output files to be licensed under the GNU General Public
    License without this special exception.
-   
+
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
-
-#ifndef YY_YY_CONFIG_TAB_H_INCLUDED
-# define YY_YY_CONFIG_TAB_H_INCLUDED
-/* Enabling traces.  */
-#ifndef YYDEBUG
-# define YYDEBUG 0
-#endif
-#if YYDEBUG
-extern int yydebug;
-#endif
 
 /* Tokens.  */
 #ifndef YYTOKENTYPE
@@ -77,42 +70,57 @@ extern int yydebug;
      STRING = 286
    };
 #endif
+/* Tokens.  */
+#define OBRACE 258
+#define EBRACE 259
+#define SEMICOLON 260
+#define PROFILETOK 261
+#define LIMITTOK 262
+#define FILTERTOK 263
+#define BITPSTOK 264
+#define PPSTOK 265
+#define FILETOK 266
+#define STARTTOK 267
+#define STOPTOK 268
+#define OPTIONSTOK 269
+#define DEBUGTOK 270
+#define PIDTOK 271
+#define ACTIONTOK 272
+#define WHENTOK 273
+#define TRACKTOK 274
+#define LEVELTOK 275
+#define COMMANDTOK 276
+#define NEWTOK 277
+#define DELTOK 278
+#define WINDOWTOK 279
+#define SIZETOK 280
+#define EXPIRETOK 281
+#define DELAYTOK 282
+#define INPUTTOK 283
+#define NUMBER 284
+#define FACTOR 285
+#define STRING 286
+
+
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-{
-/* Line 2053 of yacc.c  */
 #line 62 "config.y"
-
+{
 	long int	number;	
 	char 		string[MAX_STRING];
 	void		*node;
 	nfd_profile_t	*nfd_profile;
 	nfd_track_t		*nfd_track;
-
-
-/* Line 2053 of yacc.c  */
-#line 97 "config.tab.h"
-} YYSTYPE;
-# define YYSTYPE_IS_TRIVIAL 1
+}
+/* Line 1529 of yacc.c.  */
+#line 119 "config.tab.h"
+	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1
+# define YYSTYPE_IS_TRIVIAL 1
 #endif
 
 
-#ifdef YYPARSE_PARAM
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void *YYPARSE_PARAM);
-#else
-int yyparse ();
-#endif
-#else /* ! YYPARSE_PARAM */
-#if defined __STDC__ || defined __cplusplus
-int yyparse (yyscan_t scanner, nfd_options_t *opt);
-#else
-int yyparse ();
-#endif
-#endif /* ! YYPARSE_PARAM */
 
-#endif /* !YY_YY_CONFIG_TAB_H_INCLUDED  */
