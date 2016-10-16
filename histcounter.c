@@ -1,111 +1,22 @@
 
-#include <histcounter.h>
-
-
-/* rubg buffer structure */
-typedef ringbuf_s {
-
-	int 	size;		/* number of allocated time slots */
-	uint64_t *data;		/* timeslots for counters */
-
-} ringbuf_t;
-
-
-typedef histc_s {
-
-	int 	numslots;		/* number of allocated time slots */
-	uint64_t *tslots;		/* timeslots for counters */
-	uint64_t end_time;	/* unixtimestamp (in miliseconds) of the first timeslot */
-	uint64_t slot_size;		/* size of each slot in miliseconds */
-	uint64_t end_slot;	/* number of the first slot */
-
-} histc_t;
-
-
-/* initialize ring buffer */
-int ringbuf_init(ringbuf_t *rb, int size) {
-	
-	rb.data = malloc(size * sizeof(uint64_t)); 
-	rb.size = size;
-
-	if (ht.tslots == NULL) {
-		return 0;
-	}
-
-	return 1;
-}
-
-/* shift positions in ring buffer and delete the oldest one */
-int ringbuf_shift(ringbuf_t *rb, int numshift) {
-
-	int i = 0;
-
-	if (numshift > rb.size) {
-		return 0;
-	}
-
-	/* very, very stupid aproach ! */
-	for ( i = 0; i < rb.size; i++ ) {
-
-		if (i + numshift < rb.size) {
-			/* data on position i is taken from position i + numshift */ 
-			rb->data[i] = rb->data[i + numshift];
-		} else {
-			/* tail remaining tail is filled with 0 */
-			rb->data[i] = 0;
-		}
-	}
-
-	return 1;
-}
-
-
-/* add value on  on positions from start_pos to end_pos */
-int ringbuf_add(ringbuf_t *rb, uint64_t value, int start_pos, int end_pos) {
-
-	int i;
-
-	if (start_pos > rb->size || end_pos > rb->size || start_pos > end_pos) {
-		return 0;	
-	}	
-
-	for (i = start_pos; i <= end_pos; i++) {
-		rb->data[i] += value;
-	}
-
-	return 1;
-
-}
-
-/* get max/avg value from positions from start_pos to end_pos */
-int ringbuf_getval(ringbuf_t *rb, uint64_t value, int start_pos, int end_pos) {
-
-	int i;
-
-	if (start_pos > rb->size || end_pos > rb->size || start_pos > end_pos) {
-		return 0;	
-	}	
-
-	for (i = start_pos; i <= end_pos; i++) {
-		rb->data[i] += value;
-	}
-
-	return 1;
-
-}
+#include "histcounter.h"
+#include <stdint.h>
+#include <stdlib.h>
 
 
 /* initalise new histogramcounter */
-int histc_init(histc_t ht, int numsots, uint64_t slot_size) {
+int histc_init(histc_t *ht, int num_slots, uint64_t slot_size) {
 
-	ht.tslots = malloc(numslots * sizeof(uint64_t)); 
 
-	if (ht.tslots == NULL) {
+	ht->slots = (void *)calloc(num_slots, sizeof(histslot_t)); 
+
+	if (ht->slots == NULL) {
 		return 0;
 	}
 
-	ht.numslots = numslots;
-	ht.slot_size = slot_size;
+
+	ht->num_slots = num_slots;
+	ht->slot_size = slot_size;
 
 	return 1;
 	
@@ -113,17 +24,133 @@ int histc_init(histc_t ht, int numsots, uint64_t slot_size) {
 
 
 /* insert data into histogram counter */
-int histc_add(histc_t ht, uint64_t value, uint64_t stat_time, uint64_t duration) {
+int histc_add(histc_t *ht, uint64_t bytes, uint64_t pkts, uint64_t start_time, uint64_t duration) {
 
-	/* is the reason to shift start/start time in ht */
-	if ( start_time + duration > ht.end_time ) { 
-		
+	int num_slots, global_slot_number, slot_number, i; 
+	uint64_t bytes_per_slot, pkts_per_slot, slot_ts;
+
+
+	if (duration > 0) {
+		/* get number of timeslots */
+		num_slots = duration / ht->slot_size;
+
+		if ( duration % ht->slot_size > 0) {
+			num_slots++;
+		}
+	} else {
+		num_slots = 1;
 	}
 
-	/* short duration - use only one slot */
-	if ( duration <= ht.slot_size ) {
+
+	/* divide value amongst all slots */
+	bytes_per_slot = bytes / num_slots;
+	pkts_per_slot = pkts / num_slots;
+
+	/* 
+
+		The time interval is divided into time slots. The absolute slot number is determined as: 
+
+			global_slot_number = timestamp / slot_size
+
+		The slot number within the specific time window (slot_size * num_slots) is: 
+
+			slot_number = absolute_slot_number  % numslots
 		
-	} 
-	
+
+	*/
+
+
+	/* add value in all slots in interval */
+	for ( slot_ts = start_time; slot_ts < start_time + duration; slot_ts += ht->slot_size ) {
+
+		/* get slot number and position in slot  */
+		global_slot_number = slot_ts / ht->slot_size; 
+		slot_number = global_slot_number  % ht->num_slots; 
+
+		/* if the slot number changed then reset value to 0 */
+		if ( ht->slots[slot_number].global_slot_number != global_slot_number ) {
+
+			/* global statistics - remove previous value */
+			ht->bytes -= ht->slots[slot_number].bytes;
+			ht->pkts -= ht->slots[slot_number].pkts;
+
+			ht->slots[slot_number].global_slot_number = global_slot_number;
+
+			ht->slots[slot_number].bytes = 0;
+			ht->slots[slot_number].pkts = 0;
+
+			/* if the current slot is same as peak slot we have to find a new peak slot */
+			if (ht->peak_slot_bytes == slot_number) {
+				for (i = 0; i < ht->num_slots; i++) {
+					if (ht->slots[i].bytes >= ht->slots[ht->peak_slot_bytes].bytes) {
+						ht->peak_slot_bytes =  i;
+					}
+				}
+			}
+
+			if (ht->peak_slot_pkts == slot_number) {
+				for (i = 0; i < ht->num_slots; i++) {
+					if (ht->slots[i].pkts >= ht->slots[ht->peak_slot_pkts].pkts) {
+						ht->peak_slot_pkts =  i;
+					}
+				}
+			}
+		}
+
+
+		/* add statistics to the slot */
+		ht->slots[slot_number].bytes += bytes_per_slot;
+		ht->slots[slot_number].pkts += pkts_per_slot;
+
+		/* increase global statistics */
+		ht->bytes += bytes_per_slot;
+		ht->pkts += pkts_per_slot;
+		ht->time += slot_ts;
+
+		/* set this slot as peak slot if the value in the current slot is bigger than in the peak slot */
+		if (ht->slots[slot_number].bytes >= ht->slots[ht->peak_slot_bytes].bytes) {
+			ht->peak_slot_bytes = slot_number;
+		}
+
+		if (ht->slots[slot_number].pkts >= ht->slots[ht->peak_slot_pkts].pkts) {
+			ht->peak_slot_pkts = slot_number;
+		}
+
+	}
+
+	return 1;
 }
+
+
+int histc_get_avg(histc_t *ht, uint64_t *bps, uint64_t *pps, uint64_t *time) {
+
+	*bps = (ht->bytes / (ht->slot_size * ht->num_slots)) * 1000 * 8;
+	*pps = (ht->pkts / (ht->slot_size * ht->num_slots)) * 1000;
+	*time = ht->time;
+
+
+	/* print all slots */
+	/*
+	{ 
+	int i ;
+	for (i = 0; i < ht->num_slots; i++) {
+		printf("%d:%d ", i, ht->slots[i].bytes);
+	}
+
+	printf("\n");
+	}
+	*/
+
+	return 1;	
+}
+
+int histc_get_peak(histc_t *ht, uint64_t *bps, uint64_t *pps, uint64_t *time) {
+
+	*bps = (ht->slots[ht->peak_slot_bytes].bytes / ht->slot_size) * 1000 * 8;
+	*pps = (ht->slots[ht->peak_slot_pkts].pkts / ht->slot_size) * 1000;
+	*time = ht->slots[ht->peak_slot_pkts].global_slot_number * ht->slot_size;
+
+	return 1;	
+}
+
 

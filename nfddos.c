@@ -20,7 +20,7 @@
 #define UPDATES_IN_STEP 50		/* max number of updates (new/del) in one cycle */
 
 
-nfd_options_t *active_opt;
+//nfd_options_t *active_opt;
 
 
 /*
@@ -106,6 +106,7 @@ int mkpidfile(nfd_options_t *opt) {
 }
 
 /* eval all tracks in profile and execute action of conditions are meet  */
+/*
 int nfd_profile_eval_profile_tracks(nfd_profile_t *profp) { 
 
 	nfd_track_t *trackp;
@@ -120,7 +121,6 @@ int nfd_profile_eval_profile_tracks(nfd_profile_t *profp) {
 		if (trackp->mem != NULL && trackp->filter != NULL) {
 			msg(MSG_DEBUG, "Evaluating track in profile: %s, track: %s", profp->name, trackp->fields);
 	
-			/* wal via all records */	
 			lnf_mem_first_c(trackp->mem, &cursor);	
 
 			while (cursor != NULL) {
@@ -129,7 +129,6 @@ int nfd_profile_eval_profile_tracks(nfd_profile_t *profp) {
 				if (lnf_filter_match(trackp->filter, recp)) {
 					msg(MSG_DEBUG, "Matched condition in profile: %s, track: %s", profp->name, trackp->fields);
 
-					/* execute external script and finish the loop */
 
 					
 				}
@@ -144,12 +143,14 @@ int nfd_profile_eval_profile_tracks(nfd_profile_t *profp) {
 
 	return 1;
 }
+*/
 
 /* add flow into pfifiles */
 int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) { 
 
-	nfd_track_t *trackp;
-	uint64_t first_ts;
+	//nfd_track_t *trackp;
+	lnf_brec1_t brec1;
+	uint64_t bps, pps, time;
 
 	if (profp->input_filter != NULL) {
 		/* record do not match profile filter */
@@ -158,35 +159,21 @@ int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 		}
 	}
 
-	trackp = profp->root_track;
+	/* get flow data */
+	lnf_rec_fget(recp, LNF_FLD_BREC1, &brec1);
 
-	while (trackp != NULL) {
-//		msg(MSG_DEBUG, "Adding record profile: %s, agg: %s", profp->name, trackp->fields);
-		if (trackp->mem != NULL) {
-			lnf_mem_write(trackp->mem, recp);
-		}
 
-		trackp = trackp->next_track;
-	}
+	histc_add(&profp->hcounter, brec1.bytes, brec1.pkts, brec1.first, brec1.last - brec1.first);
 
-	/* window evaluation */
-	lnf_rec_fget(recp, LNF_FLD_FIRST, &first_ts);
 
-	/* we moved back in time */
-	if (first_ts < profp->window_start) {
-		msg(MSG_DEBUG, "Flow moved back in time in: %s", profp->name);
-		/* update window start then */
-		profp->window_start = first_ts;
-	}
 
-	/* enought data in window */	
-	if (profp->window_start + profp->window_size * 1000 < first_ts) {
+	histc_get_avg(&profp->hcounter, &bps, &pps, &time);
+	
+	printf("AVG Mb/s: %d  p/s: %d\n", bps / 1000 / 1000, pps);
 
-		nfd_profile_eval_profile_tracks(profp);
-
-		profp->window_start = first_ts;
-	}
-
+	histc_get_peak(&profp->hcounter, &bps, &pps, &time);
+	
+	printf("MAX Mb/s: %d  p/s: %d\n\n", bps / 1000 / 1000, pps);
 	return 1;
 
 }
@@ -254,8 +241,9 @@ int main(int argc, char *argv[]) {
 
 	nfd_options_t opt = { 
 		.debug = 0, 
-		.window_size = 1, 
+		.slot_size = 10, 
 		.stop_delay = 60, 
+		.num_slots = 30, 
 		.treshold = 0.8 };
 
 

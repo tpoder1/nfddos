@@ -72,7 +72,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 %token BITPSTOK PPSTOK FILETOK STARTTOK STOPTOK
 %token OPTIONSTOK DEBUGTOK PIDTOK ACTIONTOK WHENTOK TRACKTOK
 %token LEVELTOK COMMANDTOK NEWTOK DELTOK 
-%token WINDOWTOK SIZETOK EXPIRETOK DELAYTOK INPUTTOK
+%token SLOTSTOK TIMETOK SIZETOK EXPIRETOK DELAYTOK INPUTTOK
 %token <number> NUMBER FACTOR
 %token <string> STRING
 %type <string> action
@@ -95,7 +95,8 @@ optionparams: /* empty */
 
 option:
 	| DEBUGTOK LEVELTOK NUMBER 		{ if (!opt->debug_fromarg) opt->debug = $3; }
-	| WINDOWTOK SIZETOK NUMBER 		{ opt->window_size = $3; }
+	| TIMETOK SLOTSTOK NUMBER 				{ opt->num_slots = $3; }
+	| TIMETOK SLOTSTOK SIZETOK NUMBER 		{ opt->slot_size = $4; }
 	| PIDTOK FILETOK STRING         { if (!opt->pid_file_fromarg) strncpy(opt->pid_file, $3, MAX_STRING); }
 	| ACTIONTOK STARTTOK COMMANDTOK STRING	{ strncpy(opt->exec_start, $4, MAX_STRING); }
 	| ACTIONTOK STOPTOK COMMANDTOK STRING	{ strncpy(opt->exec_start, $4, MAX_STRING); }

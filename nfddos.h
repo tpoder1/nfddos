@@ -4,6 +4,7 @@
 
 #include "libnf.h"
 #include "msgs.h"
+#include "histcounter.h"
 
 #define LOG_NAME "nfddos"
 #define LOG_VERSION "1.1"
@@ -26,12 +27,13 @@ typedef struct nfd_profile_s {
 
 	char name[MAX_STRING];			/* profile name */
 	lnf_filter_t *input_filter;		/* input filter */
-	nfd_track_t *root_track;		/* pointer to root aggegation */
-	int window_size; 	 			/* window size to evaluate (in seconds) */
+//	nfd_track_t *root_track;		/* pointer to root aggegation */
+	int slot_size; 	 			/* window size to evaluate (in seconds) */
+	int num_slots; 		 			/* number of tracking slots */
 	int stop_delay;					/* delay before shaping rule is removed */
-
+	histc_t hcounter;				/* histogram counter */
 //	uint64_t last_updated;			/* when the statistics were updated */
-	uint64_t window_start;			/* when the current window started */
+//	uint64_t window_start;			/* when the current window started */
 //	int time_reported;		/* when last report was done - 0 if not reported */
 
 	struct nfd_profile_s  *next_profile;
@@ -46,8 +48,9 @@ typedef struct nfd_options_s {
 	int debug_fromarg;				/* debug mode set on command line */
 	int foreground;					/* do not daemonize */
 	double treshold;   				/* treshold (0.78 = 78%) */
-	int window_size; 	 			/* window size to evaluate (in seconds) */
-	int stop_delay;				/* delay before shaping rule is removed */
+	int slot_size; 	 				/* window size to evaluate (in seconds) */
+	int num_slots; 		 			/* number of tracking slots */
+	int stop_delay;					/* delay before shaping rule is removed */
 	int last_expire_check;			/* timestam of last expire check */
 	char config_file[MAX_STRING];	/* config gile name */
 	char pid_file[MAX_STRING];		/* file with PID */

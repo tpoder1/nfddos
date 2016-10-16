@@ -5,7 +5,7 @@ export DYLD_LIBRARY_PATH := libnf/src/.libs/
 main:
 	lex config.l
 	bison -d config.y
-	gcc -O3 msgs.c nfddos.c lex.yy.c config.tab.c config.c daemonize.c -Wall \
+	gcc -O3 msgs.c nfddos.c lex.yy.c config.tab.c config.c daemonize.c histcounter.c -Wall \
 	    -I libnf -I libnf/include -L libnf/src/.libs  -lnf \
 	    -o nfddos
 

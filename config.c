@@ -72,19 +72,28 @@ nfd_profile_t * nfd_profile_new(nfd_options_t *opt, const char *name) {
 
 	nfd_profile_t *tmp;
 
-	tmp = malloc(sizeof(nfd_profile_t));
+	tmp = calloc(1, sizeof(nfd_profile_t));
 
 	if (tmp == NULL) {
 		return NULL;
 	}
 
-	memset(tmp, 0x0, sizeof(nfd_profile_t));
-
-    tmp->window_size = opt->window_size;
+    tmp->slot_size = opt->slot_size;
+    tmp->num_slots = opt->num_slots;
     tmp->stop_delay = opt->stop_delay;
     strncpy(tmp->name, name, MAX_STRING);
 
+	/* initialize histogram counter */
+	if (!histc_init(&tmp->hcounter, tmp->num_slots, tmp->slot_size * 1000)) {
+		free(tmp);
+		return NULL;
+	}
+
+
+	/* add to tohe profile list */
 	tmp->next_profile = opt->root_profile;
+	opt->root_profile = tmp;
+
 	opt->root_profile = tmp;
 
     return tmp;
@@ -170,8 +179,8 @@ int nf_profile_add_track(nfd_profile_t *nfd_profile, char *fields, char *filter)
 	}
 
 
-	tmp->next_track = nfd_profile->root_track;
-	nfd_profile->root_track = tmp;
+//	tmp->next_track = nfd_profile->root_track;
+//	nfd_profile->root_track = tmp;
 
 
 	return 1;
