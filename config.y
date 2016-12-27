@@ -128,6 +128,6 @@ ruleparam:
 	| action							{ if (!nf_profile_add_track($<nfd_profile>0,  NULL,  $1))   { YYABORT; }; }
 	| TRACKTOK STRING 					{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    NULL)) { YYABORT; }; }
 	| TRACKTOK STRING action			{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    $3))   { YYABORT; }; }
-	| HASHTOK DSTIPTOK NUMBER			{ $<nfd_profile>0->per_dst_ip = $3;  }
+/*	| HASHTOK DSTIPTOK NUMBER			{ $<nfd_profile>0->per_dst_ip = $3;  } */
 	; 
 %% 

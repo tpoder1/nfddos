@@ -80,25 +80,26 @@ nfd_profile_t * nfd_profile_new(nfd_options_t *opt, const char *name) {
 		return NULL;
 	}
 
-    tmp->slot_size = opt->slot_size;
-    tmp->num_slots = opt->num_slots;
-    tmp->stop_delay = opt->stop_delay;
-    tmp->hash_buckets = opt->hash_buckets;
+  //  tmp->slot_size = opt->slot_size;
+   // tmp->num_slots = opt->num_slots;
+  //  tmp->stop_delay = opt->stop_delay;
+   // tmp->hash_buckets = opt->hash_buckets;
     strncpy(tmp->name, name, MAX_STRING);
 
 	/* initialize histogram counter */
-//	if (!histc_init(&tmp->hcounter, tmp->num_slots, tmp->slot_size * 1000)) {
-//		free(tmp);
-//		return NULL;
-//	}
+	if (!histc_init(&tmp->hcounter, HISTC_SLOTS, HISTC_SIZE)) {
+		free(tmp);
+		return NULL;
+	}
 
+/*
 	if (!hash_table_init(&tmp->hash_table, tmp->hash_buckets, aggr_callback, sort_callback, tmp)) {
 		free(tmp);
 		return NULL;
 	}
 
 	hash_table_entry_len(&tmp->hash_table, sizeof(lnf_ip_t), sizeof(nfd_counter_t));
-
+*/
 	/* add to tohe profile list */
 	tmp->next_profile = opt->root_profile;
 	opt->root_profile = tmp;
@@ -111,7 +112,7 @@ nfd_profile_t * nfd_profile_new(nfd_options_t *opt, const char *name) {
 /* set input filter in the profile */
 int nfd_profile_set_filter(nfd_profile_t *nfd_profile, char *expr) {
 
-	if (lnf_filter_init_v2(&nfd_profile->input_filter, expr) != LNF_OK) {
+	if (lnf_filter_init_v2(&nfd_profile->filter, expr) != LNF_OK) {
 		msg(MSG_ERROR, "Invalid input filter %s\n", expr);
 		return 0;
 	}

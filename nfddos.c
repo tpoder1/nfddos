@@ -161,21 +161,31 @@ void nfd_format_rule(nfd_options_t *opt, FILE *fh, char *buf1, char *buf2, nfd_c
 
 int nfd_dump_profile(nfd_options_t *opt, FILE *fh, nfd_profile_t *profp) {
 
-	char *ptr;
-	lnf_ip_t *ip;
-	nfd_counter_t *c;
-	char buf[MAX_STRING];
-	char buf2[MAX_STRING];
+//	char *ptr;
+//	lnf_ip_t *ip;
+//	nfd_counter_t *c;
+//	char buf[MAX_STRING];
+//	char buf2[MAX_STRING];
+	uint64_t avg_bps, avg_pps, max_bps, max_pps, time;
 
-	c = &profp->counters;
+//	c = &profp->counters;
 
-	nfd_format_rule(opt, fh, "static", profp->name, c);	
+//	nfd_format_rule(opt, fh, "static", profp->name, c);	
 
+
+	histc_get_avg(&profp->hcounter, &avg_bps, &avg_pps, &time);
+	histc_get_peak(&profp->hcounter, &max_bps, &max_pps, &time);
+
+/*
 	c->bytes = 0;
 	c->pkts = 0;
 	c->flows = 0;
+*/
+
+	fprintf(fh, "%-20s %5lld Mb/s %5lld p/s\n", profp->id, (LLUI)avg_bps / 1000 / 1000, (LLUI)avg_pps);
 
 	/* dump data from hash table */
+	/*
 	hash_table_sort(&profp->hash_table);	
 	ptr =  hash_table_first(&profp->hash_table);	
 
@@ -183,7 +193,6 @@ int nfd_dump_profile(nfd_options_t *opt, FILE *fh, nfd_profile_t *profp) {
 
 		hash_table_fetch(&profp->hash_table, ptr, (char **)&ip, (char **)&c);
 			
-		/* print data */
 		inet_ntop(AF_INET6, ip, (char *)&buf, MAX_STRING);
 
 		sprintf(buf2, "%s/%s", profp->name, buf);
@@ -193,6 +202,7 @@ int nfd_dump_profile(nfd_options_t *opt, FILE *fh, nfd_profile_t *profp) {
 	}
 
 	hash_table_clean(&profp->hash_table);	
+	*/
 		
 	return 1;
 }
@@ -249,12 +259,12 @@ int sort_callback(char *key1, char *val1, char *key2, char *val2, void *p) {
 int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 
 	lnf_brec1_t brec1;
-	nfd_counter_t c; 
-	nfd_counter_t *pc; 
+//	nfd_counter_t c; 
+//	nfd_counter_t *pc; 
 
-	if (profp->input_filter != NULL) {
+	if (profp->filter != NULL) {
 		/* record do not match profile filter */
-		if (!lnf_filter_match(profp->input_filter, recp)) {
+		if (!lnf_filter_match(profp->filter, recp)) {
 			return 0;
 		}
 	} 
@@ -263,8 +273,9 @@ int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 	lnf_rec_fget(recp, LNF_FLD_BREC1, &brec1);
 
 	/* add to profile histogram */
-//	histc_add(&profp->hcounter, brec1.bytes, brec1.pkts, brec1.first, brec1.last - brec1.first);
+	histc_add(&profp->hcounter, brec1.bytes, brec1.pkts, brec1.first, brec1.last - brec1.first);
 
+/*
 	pc = &profp->counters;
 	pc->bytes += brec1.bytes;
 	pc->pkts += brec1.pkts;
@@ -281,6 +292,8 @@ int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 	c.total_flows = brec1.flows;
 	c.active = 0;
 	c.last_updated = brec1.last / 1000 / 1000;
+
+*/
 /*
 			inet_ntop(AF_INET6, &(brec1.dstaddr), (char *)&buf, MAX_STRING);
 
@@ -290,9 +303,11 @@ int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 				(LLUI)counter.flows);
 */
 	/* add to hash table -> per detination IP */
+/*
 	if (profp->per_dst_ip) { 
 		hash_table_insert_hash(&profp->hash_table, (char *)&(brec1.dstaddr), (char *)&c);
 	}
+*/
 
 	return 1;
 }
@@ -325,7 +340,7 @@ int read_data_loop(nfd_options_t *opt) {
 		}	
 
 		tm = time(NULL);
-		if (opt->tm_display + opt->window_size < tm) {
+		if (opt->tm_display != tm) {
 			nfd_dump_profiles(opt);
 			opt->tm_display = tm;
 		}
@@ -353,6 +368,7 @@ int main(int argc, char *argv[]) {
 		.stop_delay = 60, 
 		.num_slots = 30, 
 		.hash_buckets = 50000, 
+		.db_type = NFD_DB_PGSQL, 
 		.treshold = 0.8 };
 
 
@@ -362,6 +378,8 @@ int main(int argc, char *argv[]) {
 	strcpy(opt.exec_stop, "./nfddos-stop.sh");	
 	strcpy(opt.status_file, "./nfddos.status");	
 	strcpy(opt.flow_queue_file, "./nfddos-queue.pcap");	
+	strcpy(opt.db_connstr, "dbname=nfddos host=localhost user=nfddos password=nfddos342398");	
+	strcpy(opt.db_connstr, "dbname=nfddos user=nfddos");	
 	strcpy(opt.shm, "libnf-shm");	
 
 
@@ -392,6 +410,12 @@ int main(int argc, char *argv[]) {
 	if (!nfd_parse_config(&opt)) {
 		exit(1);
 	}
+
+	if (!nfd_db_init(&opt.db, opt.db_type, opt.db_connstr)) {
+		exit(1);
+	}
+
+	nfd_db_load_profiles(&opt.db, &opt.root_profile);
 
 	read_data_loop(&opt);
 

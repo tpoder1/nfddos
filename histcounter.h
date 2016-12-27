@@ -2,6 +2,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/* default values for 5 minute hostogram with 30 slots ( 1 slot is 10 seconds) */
+#define HISTC_SLOTS 30
+#define HISTC_SIZE  10*1000
 
 /* rubg buffer structure */
 typedef struct histslot_s {
