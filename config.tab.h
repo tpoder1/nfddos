@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 2.7.12-4996.  */
+/* A Bison parser, made by GNU Bison 2.7.  */
 
 /* Bison interface for Yacc-like parsers in C
    
-      Copyright (C) 1984, 1989-1990, 2000-2013 Free Software Foundation, Inc.
+      Copyright (C) 1984, 1989-1990, 2000-2012 Free Software Foundation, Inc.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -67,15 +67,19 @@ extern int yydebug;
      COMMANDTOK = 276,
      NEWTOK = 277,
      DELTOK = 278,
-     SLOTSTOK = 279,
-     TIMETOK = 280,
-     SIZETOK = 281,
-     EXPIRETOK = 282,
-     DELAYTOK = 283,
-     INPUTTOK = 284,
-     NUMBER = 285,
-     FACTOR = 286,
-     STRING = 287
+     HASHTOK = 279,
+     BUCKETSTOK = 280,
+     DSTIPTOK = 281,
+     WINDOWTOK = 282,
+     SLOTSTOK = 283,
+     TIMETOK = 284,
+     SIZETOK = 285,
+     EXPIRETOK = 286,
+     DELAYTOK = 287,
+     INPUTTOK = 288,
+     NUMBER = 289,
+     FACTOR = 290,
+     STRING = 291
    };
 #endif
 
@@ -83,8 +87,8 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
 {
-/* Line 2053 of yacc.c  */
-#line 62 "config.y"
+/* Line 2058 of yacc.c  */
+#line 65 "config.y"
 
 	long int	number;	
 	char 		string[MAX_STRING];
@@ -93,8 +97,8 @@ typedef union YYSTYPE
 	nfd_track_t		*nfd_track;
 
 
-/* Line 2053 of yacc.c  */
-#line 98 "config.tab.h"
+/* Line 2058 of yacc.c  */
+#line 102 "config.tab.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

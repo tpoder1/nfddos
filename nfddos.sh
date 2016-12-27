@@ -1,7 +1,8 @@
 #!/bin/sh
 
-export DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}:/Users/tpoder/nfddos/libnf/src/.libs/
+export DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}:/Users/tpoder/nfddos/libnf/src/.libs/:$(pwd)/../libnf/src/.libs:
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/Users/tpoder/nfddos/libnf/src/.libs/:$(pwd)/../libnf/src/.libs:
 
-./nfddos -F -p nfddos.pid $@
+./nfddos -F -d 10 -p nfddos.pid $@
 
 

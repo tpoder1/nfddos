@@ -21,10 +21,10 @@
 
 %option outfile="lex.yy.c"
 %option reentrant bison-bridge
+%option yylineno
 %option noyywrap 
 %option nounput
 %option noinput
-%option yylineno
 
 %{
 	#include <stdlib.h>
@@ -57,6 +57,10 @@ profile			return PROFILETOK;
 input			return INPUTTOK; 
 when			return WHENTOK; 
 track			return TRACKTOK; 
+hash			return HASHTOK; 
+buckets			return BUCKETSTOK; 
+dstip			return DSTIPTOK; 
+window			return WINDOWTOK; 
 \"(\\.|[^"])*\"	{
 					strncpy(yylval->string, yytext + 1, MAX_STRING - 1);
 					yylval->string[yyleng - 2] = '\0';

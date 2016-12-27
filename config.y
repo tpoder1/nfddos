@@ -21,9 +21,9 @@
 
 %defines
 %pure-parser
-%lex-param   { yyscan_t scanner }
-%lex-param	 { nfd_options_t *opt }
-%parse-param { yyscan_t scanner }
+%lex-param   { yyscan_t scanner } 
+%lex-param   { nfd_options_t *opt }
+%parse-param { yyscan_t scanner } 
 %parse-param { nfd_options_t *opt }
 
 %{
@@ -33,19 +33,22 @@
 //	#include "ffilter.h"
 //	#include "ffilter_internal.h"
 
-	#define YY_EXTRA_TYPE options_t
+	#define YY_EXTRA_TYPE nfd_options_t
 
 //	int ff2_lex();
+
 
 #ifndef YY_TYPEDEF_YY_SCANNER_T
 #define YY_TYPEDEF_YY_SCANNER_T
 typedef void* yyscan_t;
 #endif
 
+/*
 #ifndef YY_TYPEDEF_YY_BUFFER_STATE
 #define YY_TYPEDEF_YY_BUFFER_STATE
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #endif
+*/
 
 	#define MAX_STRING 1024
 
@@ -72,6 +75,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 %token BITPSTOK PPSTOK FILETOK STARTTOK STOPTOK
 %token OPTIONSTOK DEBUGTOK PIDTOK ACTIONTOK WHENTOK TRACKTOK
 %token LEVELTOK COMMANDTOK NEWTOK DELTOK 
+%token HASHTOK BUCKETSTOK DSTIPTOK WINDOWTOK
 %token SLOTSTOK TIMETOK SIZETOK EXPIRETOK DELAYTOK INPUTTOK
 %token <number> NUMBER FACTOR
 %token <string> STRING
@@ -97,10 +101,12 @@ option:
 	| DEBUGTOK LEVELTOK NUMBER 		{ if (!opt->debug_fromarg) opt->debug = $3; }
 	| TIMETOK SLOTSTOK NUMBER 				{ opt->num_slots = $3; }
 	| TIMETOK SLOTSTOK SIZETOK NUMBER 		{ opt->slot_size = $4; }
-	| PIDTOK FILETOK STRING         { if (!opt->pid_file_fromarg) strncpy(opt->pid_file, $3, MAX_STRING); }
+	| HASHTOK BUCKETSTOK NUMBER 				{ opt->hash_buckets = $3; }
+	| PIDTOK FILETOK STRING         { if (!opt->pid_file_fromarg) strncpy(opt->pid_file, $3, MAX_STRING); } 
 	| ACTIONTOK STARTTOK COMMANDTOK STRING	{ strncpy(opt->exec_start, $4, MAX_STRING); }
 	| ACTIONTOK STOPTOK COMMANDTOK STRING	{ strncpy(opt->exec_start, $4, MAX_STRING); }
 	| ACTIONTOK STOPTOK DELAYTOK NUMBER 	{ opt->stop_delay = $4; }
+	| WINDOWTOK SIZETOK NUMBER 				{ opt->window_size = $3; }
 	;
 
 rules: /* empty */
@@ -122,5 +128,6 @@ ruleparam:
 	| action							{ if (!nf_profile_add_track($<nfd_profile>0,  NULL,  $1))   { YYABORT; }; }
 	| TRACKTOK STRING 					{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    NULL)) { YYABORT; }; }
 	| TRACKTOK STRING action			{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    $3))   { YYABORT; }; }
+	| HASHTOK DSTIPTOK NUMBER			{ $<nfd_profile>0->per_dst_ip = $3;  }
 	; 
 %% 
