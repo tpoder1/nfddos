@@ -41,5 +41,5 @@ int histc_add(histc_t *ht, uint64_t bytes, uint64_t pkts, uint64_t start_time, u
 int histc_get_avg(histc_t *ht, uint64_t *bps, uint64_t *pps, uint64_t *time);
 int histc_get_peak(histc_t *ht, uint64_t *bps, uint64_t *pps, uint64_t *time);
 
-
+void histc_free(histc_t *ht);
 

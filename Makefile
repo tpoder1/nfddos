@@ -6,7 +6,7 @@ main:
 	lex config.l
 	bison -d config.y
 	gcc -O3 msgs.c nfddos.c lex.yy.c config.tab.c config.c daemonize.c histcounter.c db.c -Wall \
-	    -I libnf -I libnf/include -L libnf/src/.libs  -lnf  -lpq \
+	    -I libnf -I libnf/include -L libnf/src/.libs  -lnf  -lpq -pthread \
 	    -o nfddos
 
 run:

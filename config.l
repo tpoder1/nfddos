@@ -55,12 +55,18 @@ delay			return DELAYTOK;
 filter			return FILTERTOK; 
 profile			return PROFILETOK; 
 input			return INPUTTOK; 
+shm				return SHMTOK; 
 when			return WHENTOK; 
 track			return TRACKTOK; 
 hash			return HASHTOK; 
 buckets			return BUCKETSTOK; 
 dstip			return DSTIPTOK; 
 window			return WINDOWTOK; 
+db				return DBTOK; 
+connect			return CONNECTTOK; 
+export			return EXPORTTOK; 
+min				return MINTOK; 
+nterval			return INTERVALTOK; 
 \"(\\.|[^"])*\"	{
 					strncpy(yylval->string, yytext + 1, MAX_STRING - 1);
 					yylval->string[yyleng - 2] = '\0';

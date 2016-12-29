@@ -153,4 +153,12 @@ int histc_get_peak(histc_t *ht, uint64_t *bps, uint64_t *pps, uint64_t *time) {
 	return 1;	
 }
 
+void histc_free(histc_t *ht) {
+
+
+	if (ht->slots != NULL) {
+		free(ht->slots); 
+	}
+}
+
 

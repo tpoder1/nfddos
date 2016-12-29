@@ -67,7 +67,6 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 	char 		string[MAX_STRING];
 	void		*node;
 	nfd_profile_t	*nfd_profile;
-	nfd_track_t		*nfd_track;
 };
 
 %token OBRACE EBRACE SEMICOLON
@@ -77,16 +76,17 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 %token LEVELTOK COMMANDTOK NEWTOK DELTOK 
 %token HASHTOK BUCKETSTOK DSTIPTOK WINDOWTOK
 %token SLOTSTOK TIMETOK SIZETOK EXPIRETOK DELAYTOK INPUTTOK
+%token SHMTOK DBTOK CONNECTTOK EXPORTTOK INTERVALTOK MINTOK
 %token <number> NUMBER FACTOR
 %token <string> STRING
-%type <string> action
-%type <nfd_profile> rule rules ruleparam ruleparams 
+/* %type <string> action */
+/* %type <nfd_profile> rule rules ruleparam ruleparams  */
 /* %type <string> options optionparams option */
 
 %%
 
 config: /* empty */
-	options rules
+	options 
 	;
 
 options: /* empty */
@@ -99,35 +99,15 @@ optionparams: /* empty */
 
 option:
 	| DEBUGTOK LEVELTOK NUMBER 		{ if (!opt->debug_fromarg) opt->debug = $3; }
-	| TIMETOK SLOTSTOK NUMBER 				{ opt->num_slots = $3; }
-	| TIMETOK SLOTSTOK SIZETOK NUMBER 		{ opt->slot_size = $4; }
-	| HASHTOK BUCKETSTOK NUMBER 				{ opt->hash_buckets = $3; }
 	| PIDTOK FILETOK STRING         { if (!opt->pid_file_fromarg) strncpy(opt->pid_file, $3, MAX_STRING); } 
+	| WINDOWTOK SIZETOK NUMBER 				{ opt->window_size = $3; }
+	| INPUTTOK SHMTOK STRING         		{ strncpy(opt->shm, $3, MAX_STRING); } 
+	| DBTOK CONNECTTOK STRING         		{ strncpy(opt->db_connstr, $3, MAX_STRING); } 
+	| DBTOK EXPORTTOK INTERVALTOK NUMBER 	{ opt->export_interval = $4; }
+	| DBTOK EXPORTTOK MINTOK PPSTOK NUMBER 	{ opt->export_min_pps = $5; }
 	| ACTIONTOK STARTTOK COMMANDTOK STRING	{ strncpy(opt->exec_start, $4, MAX_STRING); }
 	| ACTIONTOK STOPTOK COMMANDTOK STRING	{ strncpy(opt->exec_start, $4, MAX_STRING); }
 	| ACTIONTOK STOPTOK DELAYTOK NUMBER 	{ opt->stop_delay = $4; }
-	| WINDOWTOK SIZETOK NUMBER 				{ opt->window_size = $3; }
 	;
 
-rules: /* empty */
-	| rules rule;
-
-rule: 
-	PROFILETOK STRING OBRACE { $<nfd_profile>$ = nfd_profile_new(opt, $2); if ($<nfd_profile>$ == NULL) { YYABORT; }; } ruleparams EBRACE	{ ;  } 
-	;
-
-ruleparams: /* empty */ 
-	| ruleparams { $<nfd_profile>$ = $<nfd_profile>0; } ruleparam SEMICOLON;
-	;
-
-action: 
-	ACTIONTOK WHENTOK OBRACE STRING EBRACE { strncpy($$, $4, MAX_STRING); } ;
-	
-ruleparam:
-	| INPUTTOK FILTERTOK OBRACE STRING EBRACE	{ nfd_profile_set_filter($<nfd_profile>0, $4); }
-	| action							{ if (!nf_profile_add_track($<nfd_profile>0,  NULL,  $1))   { YYABORT; }; }
-	| TRACKTOK STRING 					{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    NULL)) { YYABORT; }; }
-	| TRACKTOK STRING action			{ if (!nf_profile_add_track($<nfd_profile>0,  $2,    $3))   { YYABORT; }; }
-/*	| HASHTOK DSTIPTOK NUMBER			{ $<nfd_profile>0->per_dst_ip = $3;  } */
-	; 
 %% 

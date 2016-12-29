@@ -29,7 +29,7 @@ void msg(int type, char* msg, ...) {
 	int level;
 	char buf[MAX_STRING];
 
-	if (type == LOG_DEBUG && log_debug > 0) {
+	if (type == MSG_DEBUG && log_debug == 0) {
 		return;	
 	}
 

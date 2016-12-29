@@ -20,45 +20,6 @@
 #define UPDATES_IN_STEP 50		/* max number of updates (new/del) in one cycle */
 
 
-//nfd_options_t *active_opt;
-
-
-/*
-int exec_cmd(options_t *opt, action_t action) {
-
-	char cmd[MAX_STRING];
-	FILE *fh;
-
-	switch (action) {
-		case ACTION_INIT: snprintf(cmd, MAX_STRING, "%s %s", opt->exec_init, "init"); break;
-		case ACTION_FINISH: snprintf(cmd, MAX_STRING, "%s %s", opt->exec_finish, "finish"); break;
-		default: return 0; break;
-	}
-
-	fh = popen(cmd, "w");
-
-	if (fh == NULL) {
-		msg(MSG_ERROR, "Can execute external command %s.", cmd);
-		return 0;
-	}
-
-	fprintf(fh, "device: %s\n", opt->device);
-	fflush(fh);
-
-	if (opt->debug > 5) {
-		fprintf(stdout, "Trying to execute command %s.\n", cmd);
-	}
-
-	if ( pclose(fh) != 0 ) {
-		msg(MSG_ERROR, "External command %s was not executed.", cmd);
-		return 0;
-	}
-
-	return 1;
-}
-*/
-
-
 // Kopie zbyvajicich argumantu do rednoho retezce
 char *copy_argv(char *argv[]) {
   char **arg;
@@ -105,105 +66,16 @@ int mkpidfile(nfd_options_t *opt) {
 
 }
 
-/* eval all tracks in profile and execute action of conditions are meet  */
-/*
-int nfd_profile_eval_profile_tracks(nfd_profile_t *profp) { 
-
-	nfd_track_t *trackp;
-	lnf_rec_t *recp;
-	lnf_mem_cursor_t *cursor;
-
-	trackp = profp->root_track;
-
-	lnf_rec_init(&recp);
-
-	while (trackp != NULL) {
-		if (trackp->mem != NULL && trackp->filter != NULL) {
-			msg(MSG_DEBUG, "Evaluating track in profile: %s, track: %s", profp->name, trackp->fields);
-	
-			lnf_mem_first_c(trackp->mem, &cursor);	
-
-			while (cursor != NULL) {
-
-				lnf_mem_read_c(trackp->mem, cursor, recp);
-				if (lnf_filter_match(trackp->filter, recp)) {
-					msg(MSG_DEBUG, "Matched condition in profile: %s, track: %s", profp->name, trackp->fields);
-
-
-					
-				}
-
-				lnf_mem_next_c(trackp->mem, &cursor);
-			}
-
-		}
-
-		trackp = trackp->next_track;
-	}
-
-	return 1;
-}
-*/
-
-void nfd_format_rule(nfd_options_t *opt, FILE *fh, char *buf1, char *buf2, nfd_counter_t *c) { 
-
-	fprintf(fh, "%-7s %-35s %10lld %10lld %10lld %12lld %12lld %10lld   %c\n",
-			buf1, buf2,
-			(LLUI)c->bytes / opt->window_size,
-			(LLUI)c->pkts / opt->window_size,
-			(LLUI)c->flows / opt->window_size,
-			(LLUI)c->total_bytes,
-			(LLUI)c->total_pkts,
-			(LLUI)c->total_flows, 
-			c->active ? 'Y' : 'N' );
-
-}
 
 int nfd_dump_profile(nfd_options_t *opt, FILE *fh, nfd_profile_t *profp) {
 
-//	char *ptr;
-//	lnf_ip_t *ip;
-//	nfd_counter_t *c;
-//	char buf[MAX_STRING];
-//	char buf2[MAX_STRING];
 	uint64_t avg_bps, avg_pps, max_bps, max_pps, time;
-
-//	c = &profp->counters;
-
-//	nfd_format_rule(opt, fh, "static", profp->name, c);	
-
 
 	histc_get_avg(&profp->hcounter, &avg_bps, &avg_pps, &time);
 	histc_get_peak(&profp->hcounter, &max_bps, &max_pps, &time);
 
-/*
-	c->bytes = 0;
-	c->pkts = 0;
-	c->flows = 0;
-*/
-
 	fprintf(fh, "%-20s %5lld Mb/s %5lld p/s\n", profp->id, (LLUI)avg_bps / 1000 / 1000, (LLUI)avg_pps);
 
-	/* dump data from hash table */
-	/*
-	hash_table_sort(&profp->hash_table);	
-	ptr =  hash_table_first(&profp->hash_table);	
-
-	while (ptr) {
-
-		hash_table_fetch(&profp->hash_table, ptr, (char **)&ip, (char **)&c);
-			
-		inet_ntop(AF_INET6, ip, (char *)&buf, MAX_STRING);
-
-		sprintf(buf2, "%s/%s", profp->name, buf);
-		nfd_format_rule(opt, fh, "dynamic", buf2, c);	
-		
-		ptr =  hash_table_next(&profp->hash_table, ptr);	
-	}
-
-	hash_table_clean(&profp->hash_table);	
-	*/
-		
 	return 1;
 }
 
@@ -222,7 +94,7 @@ int nfd_dump_profiles(nfd_options_t *opt) {
 
 	fprintf(fh, "TYPE    RULE                                       b/s        p/s     flow/s        bytes         pkts      flows act\n");
 
-	profp = opt->root_profile;
+	profp = opt->read_root_profile;
 
 	while (profp != NULL) {
 
@@ -235,24 +107,6 @@ int nfd_dump_profiles(nfd_options_t *opt) {
 	return 1;
 }
 
-/* callback function for router */
-void aggr_callback(char *key, char *hval, char *uval, void *p) {
-
-	((nfd_counter_t *)hval)->bytes += ((nfd_counter_t *)uval)->bytes;
-	((nfd_counter_t *)hval)->pkts += ((nfd_counter_t *)uval)->pkts;
-	((nfd_counter_t *)hval)->flows += ((nfd_counter_t *)uval)->flows;
-
-	((nfd_counter_t *)hval)->total_bytes += ((nfd_counter_t *)uval)->total_bytes;
-	((nfd_counter_t *)hval)->total_pkts += ((nfd_counter_t *)uval)->total_pkts;
-	((nfd_counter_t *)hval)->total_flows += ((nfd_counter_t *)uval)->total_flows;
-}
-
-int sort_callback(char *key1, char *val1, char *key2, char *val2, void *p) {
-
-	return ((nfd_counter_t *)val1)->bytes > ((nfd_counter_t *)val2)->bytes;
-}
-
-
 
 
 /* add flow into pfifiles */
@@ -260,7 +114,7 @@ int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 
 	lnf_brec1_t brec1;
 //	nfd_counter_t c; 
-//	nfd_counter_t *pc; 
+	nfd_counter_t *pc; 
 
 	if (profp->filter != NULL) {
 		/* record do not match profile filter */
@@ -275,44 +129,20 @@ int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
 	/* add to profile histogram */
 	histc_add(&profp->hcounter, brec1.bytes, brec1.pkts, brec1.first, brec1.last - brec1.first);
 
-/*
+
 	pc = &profp->counters;
 	pc->bytes += brec1.bytes;
 	pc->pkts += brec1.pkts;
 	pc->flows += brec1.flows;
-	pc->total_bytes += brec1.bytes;
-	pc->total_pkts += brec1.pkts;
-	pc->total_flows += brec1.flows;
 
-	c.bytes = brec1.bytes;
-	c.pkts = brec1.pkts;
-	c.flows = brec1.flows;
-	c.total_bytes = brec1.bytes;
-	c.total_pkts = brec1.pkts;
-	c.total_flows = brec1.flows;
-	c.active = 0;
-	c.last_updated = brec1.last / 1000 / 1000;
-
-*/
-/*
-			inet_ntop(AF_INET6, &(brec1.dstaddr), (char *)&buf, MAX_STRING);
-
-			printf("IP1: %s %d %d %d\n", buf, 
-				(LLUI)counter.bytes,
-				(LLUI)counter.pkts,
-				(LLUI)counter.flows);
-*/
-	/* add to hash table -> per detination IP */
-/*
-	if (profp->per_dst_ip) { 
-		hash_table_insert_hash(&profp->hash_table, (char *)&(brec1.dstaddr), (char *)&c);
+	if (profp->mem) { 
+		lnf_mem_write(profp->mem, recp);
 	}
-*/
 
 	return 1;
 }
 
-int read_data_loop(nfd_options_t *opt) {
+void read_data_loop(nfd_options_t *opt) {
 
 	lnf_ring_t *ringp;
 	lnf_rec_t *recp;
@@ -321,8 +151,8 @@ int read_data_loop(nfd_options_t *opt) {
 
 
 	if (lnf_ring_init(&ringp, opt->shm, 0) != LNF_OK) {
-		msg(MSG_ERROR, "Can not open file '%s'", opt->shm);
-		return 0;
+		msg(MSG_ERROR, "Can not open shm/ringbuf %s", opt->shm);
+		return;
 	}
 
 	lnf_rec_init(&recp);
@@ -332,7 +162,10 @@ int read_data_loop(nfd_options_t *opt) {
 
 	while (lnf_ring_read(ringp, recp) != LNF_EOF) {
 
-		profp = opt->root_profile;
+		pthread_mutex_lock(&opt->read_lock);
+
+
+		profp = opt->read_root_profile;
 
 		while (profp != NULL) {
 			nfd_profile_add_flow(profp, recp);
@@ -344,32 +177,193 @@ int read_data_loop(nfd_options_t *opt) {
 			nfd_dump_profiles(opt);
 			opt->tm_display = tm;
 		}
-		
+
+		pthread_mutex_unlock(&opt->read_lock);
 	}
 
 	lnf_ring_free(ringp);
 
-	return 1;
+}
+
+void nfd_profile_free(nfd_profile_t *profp) { 
+
+		if (profp->mem != NULL) {
+			lnf_mem_free(profp->mem);
+		}
+
+		if (profp->filter != NULL) {
+			lnf_filter_free(profp->filter);
+		}
+
+		histc_free(&profp->hcounter);
+
+		free(profp);
+}
+
+
+int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile) {
+
+	nfd_profile_t *profp, *tmp;
+	lnf_rec_t *rec;
+	lnf_mem_cursor_t *cursor;
+	char buf[MAX_STRING];
+	char key[MAX_STRING];
+	int i, field;
+	uint64_t bytes, pkts, flows;
+	int ignored = 0;
+
+	lnf_rec_init(&rec);
+
+	profp = *root_profile;
+
+	msg(MSG_DEBUG, "Start exporting data");
+	nfd_db_begin_transaction(&opt->db);
+
+	while (profp != NULL) {
+
+		/* main profile statistics */
+		nfd_db_store_stats(&opt->db, profp->id, "", opt->last_window_size,
+			profp->counters.bytes, 
+			profp->counters.pkts, 
+			profp->counters.flows);
+
+
+		/* aggargated statistics from lnf_mem */
+		if (profp->mem != NULL) {
+
+			lnf_mem_first_c(profp->mem, &cursor);
+			while (cursor != NULL) {
+
+				lnf_mem_read_c(profp->mem, cursor, rec);
+
+				for (i = 0; i < MAX_AGGR_FIELDS; i++) {
+
+					field = profp->fields[i]; 
+
+					lnf_rec_fget(rec, field, &buf);
+
+					/* last field in list */
+					if (field == LNF_FLD_ZERO_) { break; }
+
+
+					switch (lnf_fld_type(field)) { 
+
+						case LNF_ADDR:
+							inet_ntop(AF_INET6, buf, key, MAX_STRING);
+							break;
+
+					}
+
+				}
+
+				/* get counters */
+				lnf_rec_fget(rec, LNF_FLD_DOCTETS, &bytes);
+				lnf_rec_fget(rec, LNF_FLD_DPKTS, &pkts);
+				lnf_rec_fget(rec, LNF_FLD_AGGR_FLOWS, &flows);
+
+				/* update aggr mem statistics */
+				if (pkts > opt->window_size * opt->export_min_pps) {
+					nfd_db_store_stats(&opt->db, profp->id, key, opt->last_window_size, bytes, pkts, flows);
+				} else {
+					ignored++;
+				}
+
+				/* go to next revord */
+				lnf_mem_next_c(profp->mem, &cursor);
+			}
+
+		}
+
+		tmp = profp;
+		profp = profp->next_profile;
+
+		nfd_profile_free(tmp);
+	}	
+
+	*root_profile = NULL;
+
+	nfd_db_end_transaction(&opt->db);
+
+	msg(MSG_DEBUG, "Data exported (%d updates, %d inserts, %d ignores)", opt->db.updated, opt->db.inserted, ignored);
+
+	lnf_rec_free(rec);
+
+	return 1;	
 
 }
 
+void dump_data_loop(nfd_options_t *opt) {
+	
+	nfd_profile_t *tmp;
+	int last_switched = 0;
+	int remains;
+
+	while (1) { 
+
+		/* load new profiles configuration into dump profile taht will be read profile in while  */
+		nfd_db_load_profiles(&opt->db, &opt->dump_root_profile);
+
+		opt->last_window_size = time(NULL) - last_switched;
+		msg(MSG_DEBUG, "Last windows size %d", opt->last_window_size);
+
+		/* switch read and dump profile */
+		msg(MSG_DEBUG, "Switching read and dump profiles");
+		pthread_mutex_lock(&opt->read_lock);
+		pthread_mutex_lock(&opt->dump_lock);
+
+		tmp = opt->read_root_profile;
+		opt->read_root_profile = opt->dump_root_profile;
+		opt->dump_root_profile = tmp;
+
+		pthread_mutex_unlock(&opt->read_lock);
+		pthread_mutex_unlock(&opt->dump_lock);
+
+		last_switched = time(NULL);
+
+		/* drump actual dump profile (previous read profile) into DB  */
+		db_export_profiles(opt, &opt->dump_root_profile);
+
+
+		/* update counters */
+		/*
+		msg(MSG_DEBUG, "Starting counters update");
+
+		nfd_db_update_counters(&opt->db);
+
+		msg(MSG_DEBUG, "Finished counters update");
+		*/
+
+		/* wait rest of the time */
+		remains = opt->window_size - (time(NULL) - last_switched);
+		
+		msg(MSG_DEBUG, "Waiting for %d seconds", remains); 
+
+		sleep(remains);
+
+	
+	} // main loop 
+
+}
+	
 
 int main(int argc, char *argv[]) {
     extern int optind;
     char op;
-//    int pflag = 0;
-
-//	pthread_t read_thread;
 
 	nfd_options_t opt = { 
 		.debug = 0, 
-		.slot_size = 10, 
+//		.slot_size = 10, 
 		.window_size = 60, 
 		.stop_delay = 60, 
-		.num_slots = 30, 
-		.hash_buckets = 50000, 
+//		.num_slots = 30, 
+//		.hash_buckets = 50000, 
 		.db_type = NFD_DB_PGSQL, 
-		.treshold = 0.8 };
+//		.treshold = 0.8,
+		.export_interval = 10,
+		.export_min_pps = 1,
+		.read_root_profile = NULL,
+		.dump_root_profile = NULL,
+		};
 
 
 	strcpy(opt.config_file, "./nfddos.conf");	
@@ -378,7 +372,6 @@ int main(int argc, char *argv[]) {
 	strcpy(opt.exec_stop, "./nfddos-stop.sh");	
 	strcpy(opt.status_file, "./nfddos.status");	
 	strcpy(opt.flow_queue_file, "./nfddos-queue.pcap");	
-	strcpy(opt.db_connstr, "dbname=nfddos host=localhost user=nfddos password=nfddos342398");	
 	strcpy(opt.db_connstr, "dbname=nfddos user=nfddos");	
 	strcpy(opt.shm, "libnf-shm");	
 
@@ -404,20 +397,37 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	mkpidfile(&opt);
 
-
+	/* process config file */
 	if (!nfd_parse_config(&opt)) {
 		exit(1);
 	}
 
+	/* create pid file */
+	mkpidfile(&opt);
+
+	/* connect to DB */
 	if (!nfd_db_init(&opt.db, opt.db_type, opt.db_connstr)) {
 		exit(1);
 	}
 
-	nfd_db_load_profiles(&opt.db, &opt.root_profile);
+	/* prepare thread locks */
+	if (pthread_mutex_init(&opt.read_lock, NULL) != 0 || pthread_mutex_init(&opt.dump_lock, NULL) != 0) {
+		msg(MSG_ERROR, "Canot init mutexes %s:%d", __FILE__, __LINE__);
+		exit(1);
+	}
+	
+	/* load profiles for first run */
+	nfd_db_load_profiles(&opt.db, &opt.read_root_profile);
 
-	read_data_loop(&opt);
+	/* execute therad with read loop */
+	if (pthread_create(&opt.read_thread, NULL, (void *)&read_data_loop, (void *)&opt) != 0) {
+		msg(MSG_ERROR, "Canot init read thread %s:%d", __FILE__, __LINE__);
+		exit(1);
+	}
+
+	dump_data_loop(&opt);
+
 
 	return 0;
 }

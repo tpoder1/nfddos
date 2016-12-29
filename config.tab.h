@@ -77,9 +77,15 @@ extern int yydebug;
      EXPIRETOK = 286,
      DELAYTOK = 287,
      INPUTTOK = 288,
-     NUMBER = 289,
-     FACTOR = 290,
-     STRING = 291
+     SHMTOK = 289,
+     DBTOK = 290,
+     CONNECTTOK = 291,
+     EXPORTTOK = 292,
+     INTERVALTOK = 293,
+     MINTOK = 294,
+     NUMBER = 295,
+     FACTOR = 296,
+     STRING = 297
    };
 #endif
 
@@ -94,11 +100,10 @@ typedef union YYSTYPE
 	char 		string[MAX_STRING];
 	void		*node;
 	nfd_profile_t	*nfd_profile;
-	nfd_track_t		*nfd_track;
 
 
 /* Line 2058 of yacc.c  */
-#line 102 "config.tab.h"
+#line 107 "config.tab.h"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
