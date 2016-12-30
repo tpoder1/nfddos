@@ -206,10 +206,10 @@ int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile) {
 	nfd_profile_t *profp, *tmp;
 	lnf_rec_t *rec;
 	lnf_mem_cursor_t *cursor;
+	nfd_counter_t counters;
 	char buf[MAX_STRING];
 	char key[MAX_STRING];
 	int i, field;
-	uint64_t bytes, pkts, flows;
 	int ignored = 0;
 
 	lnf_rec_init(&rec);
@@ -222,10 +222,7 @@ int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile) {
 	while (profp != NULL) {
 
 		/* main profile statistics */
-		nfd_db_store_stats(&opt->db, profp->id, "", opt->last_window_size,
-			profp->counters.bytes, 
-			profp->counters.pkts, 
-			profp->counters.flows);
+		nfd_db_store_stats(&opt->db, profp->id, "", opt->last_window_size, &profp->counters);
 
 
 		/* aggargated statistics from lnf_mem */
@@ -257,22 +254,27 @@ int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile) {
 				}
 
 				/* get counters */
-				lnf_rec_fget(rec, LNF_FLD_DOCTETS, &bytes);
-				lnf_rec_fget(rec, LNF_FLD_DPKTS, &pkts);
-				lnf_rec_fget(rec, LNF_FLD_AGGR_FLOWS, &flows);
+				lnf_rec_fget(rec, LNF_FLD_DOCTETS, &counters.bytes);
+				lnf_rec_fget(rec, LNF_FLD_DPKTS, &counters.pkts);
+				lnf_rec_fget(rec, LNF_FLD_AGGR_FLOWS, &counters.flows);
 
 				/* update aggr mem statistics */
-				if (pkts > opt->window_size * opt->export_min_pps) {
-					nfd_db_store_stats(&opt->db, profp->id, key, opt->last_window_size, bytes, pkts, flows);
+				if (counters.pkts > opt->window_size * opt->export_min_pps) {
+					nfd_db_store_stats(&opt->db, profp->id, key, opt->last_window_size, &counters);
 				} else {
 					ignored++;
 				}
 
+				nfd_act_eval_profile(opt, profp, key, &counters);
+
 				/* go to next revord */
 				lnf_mem_next_c(profp->mem, &cursor);
 			}
-
+		} else {
+			/* profile without mem profile */
+			nfd_act_eval_profile(opt, profp, NULL, &profp->counters);
 		}
+
 
 		tmp = profp;
 		profp = profp->next_profile;
@@ -338,7 +340,11 @@ void dump_data_loop(nfd_options_t *opt) {
 		
 		msg(MSG_DEBUG, "Waiting for %d seconds", remains); 
 
-		sleep(remains);
+		if (remains > 0) {
+			sleep(remains);
+		} else {
+			msg(MSG_ERROR, "Performance issue: can not process data in time window, missing %d seconds", -1 * remains);
+		}
 
 	
 	} // main loop 
@@ -363,6 +369,7 @@ int main(int argc, char *argv[]) {
 		.export_min_pps = 1,
 		.read_root_profile = NULL,
 		.dump_root_profile = NULL,
+		.max_actions = 512
 		};
 
 
@@ -405,6 +412,11 @@ int main(int argc, char *argv[]) {
 
 	/* create pid file */
 	mkpidfile(&opt);
+
+	/* connect to DB */
+	if (!nfd_act_init(&opt.actions, opt.max_actions)) {
+		exit(1);
+	}
 
 	/* connect to DB */
 	if (!nfd_db_init(&opt.db, opt.db_type, opt.db_connstr)) {

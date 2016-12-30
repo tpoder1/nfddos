@@ -37,12 +37,29 @@ typedef struct nfd_profile_s {
 	lnf_filter_t *filter;			/* input filter */
 	histc_t hcounter;				/* histogram counter */
 	nfd_counter_t counters;			/* profile counters */
+	nfd_counter_t limits;			/* profile limits */
 	lnf_mem_t *mem;					/* aggregation unit */
 	int fields[MAX_AGGR_FIELDS];	/* array of aggregation fields (last field 0 ) */
 
 	struct nfd_profile_s  *next_profile;
 
 } nfd_profile_t;
+
+/* one action entry */
+typedef struct nfd_action_s {
+
+	char name[MAX_STRING];	
+	int updated;
+
+} nfd_action_t;
+
+/* actions structure */
+typedef struct nfd_actions_s {
+
+	int max_actions; 
+	nfd_action_t **actions;
+
+} nfd_actions_t;
 
 
 /* general options of bwd */
@@ -74,6 +91,9 @@ typedef struct nfd_options_s {
 	char db_connstr[MAX_STRING];	/* db connection string  */
 	time_t tm_display;				/* timestamp of las displayed statistics */
 
+	int	max_actions;				/* max number of actions */
+	nfd_actions_t	actions;		/* reference to action structure */
+
 	nfd_profile_t  *read_root_profile;	/* root profile where data are filled in */
 	nfd_profile_t  *dump_root_profile;	/* root profile which is dumped into DB */
 
@@ -94,7 +114,8 @@ int nf_profile_add_track(nfd_profile_t *nfd_profile, char *fields, char *filter)
 int nfd_db_init(nfd_db_t *db, nfd_db_type_t db_type, const char *connstr);
 
 int nfd_db_load_profiles(nfd_db_t *db, nfd_profile_t **root_profile);
-int nfd_db_mk_profile(nfd_profile_t **nfd_profile, char *id, char *filter, char *fields, char *errbuf);
+int nfd_db_mk_profile(nfd_profile_t **nfd_profile, char *id, char *filter, char *fields, nfd_counter_t *limits, char *errbuf);
+int nfd_db_store_stats(nfd_db_t *db, char *id, char *key, int window, nfd_counter_t *c);
 
 void nfd_db_free(nfd_db_t *db);
 
@@ -102,7 +123,8 @@ void aggr_callback(char *key, char *hval, char *uval, void *p);
 int sort_callback(char *key1, char *val1, char *key2, char *val2, void *p);
 
 
-//int exec_node_cmd(options_t *opt, stat_node_t *stat_node, action_t action);
+int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *key, nfd_counter_t *c);
+
 
 #endif // __NFDDOS_H_
 

@@ -26,7 +26,6 @@ typedef struct nfd_db_s {
 	int updated;
 } nfd_db_t;
 
-int nfd_db_store_stats(nfd_db_t *db, char *id, char *key, int window, int64_t bytes, int64_t pkts, int64_t flows);
 int nfd_db_begin_transaction(nfd_db_t *db);
 int nfd_db_end_transaction(nfd_db_t *db);
 

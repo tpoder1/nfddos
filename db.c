@@ -64,7 +64,7 @@ int nfd_db_init(nfd_db_t *db, nfd_db_type_t db_type, const char *connstr) {
 }
 
 /* create new profile  */
-int nfd_db_mk_profile(nfd_profile_t **nfd_profile, char *id, char *filter, char *fields, char *errbuf) {
+int nfd_db_mk_profile(nfd_profile_t **nfd_profile, char *id, char *filter, char *fields, nfd_counter_t *limits, char *errbuf) {
 
 	nfd_profile_t *tmp;
 	char *token = fields;
@@ -80,6 +80,7 @@ int nfd_db_mk_profile(nfd_profile_t **nfd_profile, char *id, char *filter, char 
 
 	if (id != NULL && strnlen(id, MAX_STRING) > 0) {
 		strncpy(tmp->id, id, MAX_STRING);
+		strncpy(tmp->name, id, MAX_STRING);
 	} else {
 		snprintf(errbuf, MAX_STRING, "Missing profile id %s:%d", __FILE__, __LINE__);
 		return 0;
@@ -136,6 +137,9 @@ int nfd_db_mk_profile(nfd_profile_t **nfd_profile, char *id, char *filter, char 
 		}
 	}
 
+	/* set limits */
+	memcpy(&tmp->limits, limits, sizeof(nfd_counter_t));
+
 	if (!histc_init(&tmp->hcounter, HISTC_SLOTS, HISTC_SIZE)) {
 		free(tmp);
 		snprintf(errbuf, MAX_STRING, "Can not initialize hcounter in %s:%d", __FILE__, __LINE__);
@@ -151,11 +155,12 @@ int nfd_db_load_profiles(nfd_db_t *db, nfd_profile_t **root_profile) {
 
 	PGresult *res;
 	int i;
-	char *id, *filter, *fields;
+	char *id, *filter, *fields, *buf;
 	nfd_profile_t *tmp;
+	nfd_counter_t c = { 0, 0, 0 };
 	char errbuf[MAX_STRING];
 
-	res = PQexec(db->conn, "SELECT nfd_profile_id, nfd_filter_expr, nfd_aggr_expr FROM nfd_profiles");  
+	res = PQexec(db->conn, "SELECT nfd_profile_id, nfd_filter_expr, nfd_aggr_expr, nfd_limit_bytes_ps FROM nfd_profiles");  
 
 
 	if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -169,8 +174,11 @@ int nfd_db_load_profiles(nfd_db_t *db, nfd_profile_t **root_profile) {
 		id = PQgetvalue(res, i, 0);
 		filter = PQgetvalue(res, i, 1);
 		fields = PQgetvalue(res, i, 2);
+		buf = PQgetvalue(res, i, 3);
+		c.bytes = atoi(buf);
+		
 
-		if ( nfd_db_mk_profile(&tmp, id, filter, fields, errbuf) ) {
+		if ( nfd_db_mk_profile(&tmp, id, filter, fields, &c, errbuf) ) {
 			/* add profile to root profile */
 			tmp->next_profile = *root_profile;
 			*root_profile = tmp;
@@ -244,13 +252,13 @@ int nfd_db_update_counters(nfd_db_t *db) {
 
 }
 
-int nfd_db_store_stats(nfd_db_t *db, char *id, char *key, int window, int64_t bytes, int64_t pkts, int64_t flows) {
+int nfd_db_store_stats(nfd_db_t *db, char *id, char *key, int window, nfd_counter_t *c) {
 
 	int paramFormats[8] = {0, 0, 1, 1, 1, 1, 1, 1};
 	const char* paramValues[8];
 	int paramLengths[8];
 	PGresult *res;
-	int64_t bytes_ps, pkts_ps, flows_ps;
+	int64_t bytes, pkts, flows, bytes_ps, pkts_ps, flows_ps;
 
 	paramValues[0] = id;
 	if (id != NULL) {
@@ -262,13 +270,13 @@ int nfd_db_store_stats(nfd_db_t *db, char *id, char *key, int window, int64_t by
 		paramLengths[1] = strlen(key);
 	}
 
-	bytes_ps = bytes / window;
-	pkts_ps = pkts / window;
-	flows_ps = flows / window;
+	bytes_ps = c->bytes / window;
+	pkts_ps = c->pkts / window;
+	flows_ps = c->flows / window;
 
-	bytes = htonll(bytes);
-	pkts = htonll(pkts);
-	flows = htonll(flows);
+	bytes = htonll(c->bytes);
+	pkts = htonll(c->pkts);
+	flows = htonll(c->flows);
 
 	bytes_ps = htonll(bytes_ps);
 	pkts_ps = htonll(pkts_ps);
