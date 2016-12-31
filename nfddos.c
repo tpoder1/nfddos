@@ -325,6 +325,7 @@ void dump_data_loop(nfd_options_t *opt) {
 		/* drump actual dump profile (previous read profile) into DB  */
 		db_export_profiles(opt, &opt->dump_root_profile);
 
+		nfd_act_expire(&opt->actions, opt->stop_delay);
 
 		/* update counters */
 		/*
@@ -360,7 +361,7 @@ int main(int argc, char *argv[]) {
 		.debug = 0, 
 //		.slot_size = 10, 
 		.window_size = 60, 
-		.stop_delay = 60, 
+		.stop_delay = 90, 
 //		.num_slots = 30, 
 //		.hash_buckets = 50000, 
 		.db_type = NFD_DB_PGSQL, 
@@ -377,6 +378,7 @@ int main(int argc, char *argv[]) {
 	strcpy(opt.pid_file, "/var/run/nfddos.pid");	
 	strcpy(opt.exec_start, "./nfddos-start.sh");	
 	strcpy(opt.exec_stop, "./nfddos-stop.sh");	
+	strcpy(opt.action_dir, "./actions/");	
 	strcpy(opt.status_file, "./nfddos.status");	
 	strcpy(opt.flow_queue_file, "./nfddos-queue.pcap");	
 	strcpy(opt.db_connstr, "dbname=nfddos user=nfddos");	

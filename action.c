@@ -3,6 +3,56 @@
 #include "nfddos.h"
 #include "string.h"
 #include "time.h"
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
+
+
+int nfd_act_cmd(nfd_options_t *opt, nfd_action_t *a, nfd_action_cmd_t action_cmd) {
+
+	char cmd[MAX_STRING];
+	FILE *fh;
+	struct stat st = {0};
+
+
+	/* build command */
+	switch (action_cmd) {
+		case NFD_ACTION_START: 
+				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_start, "new", a->action_dir); 
+				break;
+		case NFD_ACTION_STOP: 
+				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_stop, "del", a->action_dir); 
+				break;
+		default: 
+				return 0; 
+				break;
+	}
+
+	/* check and try to create action dir */
+	if (stat(a->action_dir, &st) == -1) {
+		if (mkdir(a->action_dir, 0700) < 0) {
+			msg(MSG_ERROR, "Can not create %s direcorty (%s(.", a->action_dir, strerror(errno));
+			return 0;
+		}
+	}	
+
+
+	fh = popen(cmd, "w");
+
+	if (fh == NULL) {
+		msg(MSG_ERROR, "Can not execute external command %s.", cmd);
+		return 0;
+	}
+
+	fflush(fh);
+
+	if ( pclose(fh) != 0 ) {
+		msg(MSG_ERROR, "External command %s was not executed.", cmd);
+		return 0;
+	}
+
+	return 1;
+}
 
 int nfd_act_init(nfd_actions_t *act, int max_actions) {
 
@@ -20,11 +70,13 @@ int nfd_act_init(nfd_actions_t *act, int max_actions) {
 }
 
 /* update or insert new action */
-int nfd_act_upsert(nfd_actions_t *act, char *name) {
+int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *name) {
 
 	nfd_action_t *a;
-
 	int i;
+	char buf[MAX_STRING];
+	struct tm *tmp;
+	time_t t;
 
 	/* lookup existing action by name */
 	a = NULL;
@@ -47,6 +99,7 @@ int nfd_act_upsert(nfd_actions_t *act, char *name) {
 		/* find empty slot for new created actions */
 		for (i = 0; i < act->max_actions; i++) {
 			if  ( act->actions[i] == NULL ) {
+				a->id = i;
 				act->actions[i] = a;
 				break;
 			}
@@ -59,12 +112,27 @@ int nfd_act_upsert(nfd_actions_t *act, char *name) {
 			return 0;
 		}
 
+		/* build action dir */
+		t = time(NULL);
+		tmp = localtime(&t);
+		if (tmp == NULL) {
+			msg(MSG_ERROR, "Can get time %s:%d", __FILE__, __LINE__);
+			return 0;
+		}
+		strftime(buf, MAX_STRING, "%F-%H-%M-%S", tmp);
+		snprintf(a->action_dir, MAX_STRING, "%s/%s.%03d", opt->action_dir, buf, a->id);
+
 		/* steps performed when a new action is invoked */
 		/* XXX TODO */	
 		strncpy(a->name, name, MAX_STRING);
 
-		msg(MSG_DEBUG, "NEW PROFILE ACTION FOR %s", name);
-	} 
+		nfd_act_cmd(opt, a, NFD_ACTION_START);
+
+		msg(MSG_INFO, "Starting action for profile %s dir %s", name, a->action_dir);
+	}  else {
+
+		msg(MSG_DEBUG, "UPD PROFILE ACTION FOR %s", name);
+	}
 
 	/* we update information in existing profile */
 	a->updated = time(NULL);
@@ -73,6 +141,27 @@ int nfd_act_upsert(nfd_actions_t *act, char *name) {
 
 }
 
+/* check for expired actions */
+int nfd_act_expire(nfd_actions_t *act, int expire_time) {
+
+	nfd_action_t *a;
+	int i;
+
+	/* wall via all actions */
+	for (i = 0; i < act->max_actions; i++) {
+		if  ( act->actions[i] != NULL && act->actions[i]->updated + expire_time < time(NULL)) { 
+			a = act->actions[i];
+
+			msg(MSG_INFO, "Stopping action for profile %s dir %s", a->name, a->action_dir);
+
+
+			free(a);
+			act->actions[i] = NULL;
+		}
+	}
+
+	return 1;
+}
 
 /* evaluate limits in profile and if limits are reached take action */
 int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *key, nfd_counter_t *c) {
@@ -107,7 +196,7 @@ int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *key, nf
 
 	msg(MSG_DEBUG, "Profile %s reached the limit", name);
 
-	nfd_act_upsert(&opt->actions, name);
+	nfd_act_upsert(opt, &opt->actions, name);
 
 	return 1;
 }

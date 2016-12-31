@@ -49,6 +49,8 @@ typedef struct nfd_profile_s {
 typedef struct nfd_action_s {
 
 	char name[MAX_STRING];	
+	int id;							/* index to action array */
+	char action_dir[MAX_STRING];	/* fill directory name with action metadata */
 	int updated;
 
 } nfd_action_t;
@@ -60,6 +62,11 @@ typedef struct nfd_actions_s {
 	nfd_action_t **actions;
 
 } nfd_actions_t;
+
+typedef enum {
+	NFD_ACTION_START,
+	NFD_ACTION_STOP
+} nfd_action_cmd_t;
 
 
 /* general options of bwd */
@@ -83,8 +90,10 @@ typedef struct nfd_options_s {
 	char status_file[MAX_STRING];	/* file to export status data */
 	char flow_queue_file[MAX_STRING];	/* file to temporary store flow data */
 	char shm[MAX_STRING];			/* shm name for ringbuf */
+
 	char exec_start[MAX_STRING];	/* command to exec new rule */
 	char exec_stop[MAX_STRING];		/* command to exec to remove rule */
+	char action_dir[MAX_STRING];	/* directory to put profile/action data during action */
 
 	nfd_db_type_t db_type;			/* type of db engine  */
 	nfd_db_t db;					/* db handle - see db.h  */
