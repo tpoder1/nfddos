@@ -67,81 +67,6 @@ int mkpidfile(nfd_options_t *opt) {
 }
 
 
-int nfd_dump_profile(nfd_options_t *opt, FILE *fh, nfd_profile_t *profp) {
-
-	uint64_t avg_bps, avg_pps, max_bps, max_pps, time;
-
-	histc_get_avg(&profp->hcounter, &avg_bps, &avg_pps, &time);
-	histc_get_peak(&profp->hcounter, &max_bps, &max_pps, &time);
-
-	fprintf(fh, "%-20s %5lld Mb/s %5lld p/s\n", profp->id, (LLUI)avg_bps / 1000 / 1000, (LLUI)avg_pps);
-
-	return 1;
-}
-
-int nfd_dump_profiles(nfd_options_t *opt) {
-
-	nfd_profile_t *profp;
-	FILE *fh;
-
-	/* open dbdump file */
-	fh = fopen(opt->status_file, "w"); 
-
-	if (fh == NULL) {
-		msg(MSG_ERROR, "Can not open file %s.", opt->status_file);
-		return 0;
-	}
-
-	fprintf(fh, "TYPE    RULE                                       b/s        p/s     flow/s        bytes         pkts      flows act\n");
-
-	profp = opt->read_root_profile;
-
-	while (profp != NULL) {
-
-		nfd_dump_profile(opt, fh, profp);
-
-		profp = profp->next_profile;
-	}	
-	
-	fclose(fh);	
-	return 1;
-}
-
-
-
-/* add flow into pfifiles */
-int nfd_profile_add_flow(nfd_profile_t *profp, lnf_rec_t *recp) {
-
-	lnf_brec1_t brec1;
-//	nfd_counter_t c; 
-	nfd_counter_t *pc; 
-
-	if (profp->filter != NULL) {
-		/* record do not match profile filter */
-		if (!lnf_filter_match(profp->filter, recp)) {
-			return 0;
-		}
-	} 
-
-	/* get flow data */
-	lnf_rec_fget(recp, LNF_FLD_BREC1, &brec1);
-
-	/* add to profile histogram */
-	histc_add(&profp->hcounter, brec1.bytes, brec1.pkts, brec1.first, brec1.last - brec1.first);
-
-
-	pc = &profp->counters;
-	pc->bytes += brec1.bytes;
-	pc->pkts += brec1.pkts;
-	pc->flows += brec1.flows;
-
-	if (profp->mem) { 
-		lnf_mem_write(profp->mem, recp);
-	}
-
-	return 1;
-}
-
 void read_data_loop(nfd_options_t *opt) {
 
 	lnf_ring_t *ringp;
@@ -172,125 +97,18 @@ void read_data_loop(nfd_options_t *opt) {
 			profp = profp->next_profile;
 		}	
 
+/*
 		tm = time(NULL);
 		if (opt->tm_display != tm) {
 			nfd_dump_profiles(opt);
 			opt->tm_display = tm;
 		}
+*/
 
 		pthread_mutex_unlock(&opt->read_lock);
 	}
 
 	lnf_ring_free(ringp);
-
-}
-
-void nfd_profile_free(nfd_profile_t *profp) { 
-
-		if (profp->mem != NULL) {
-			lnf_mem_free(profp->mem);
-		}
-
-		if (profp->filter != NULL) {
-			lnf_filter_free(profp->filter);
-		}
-
-		histc_free(&profp->hcounter);
-
-		free(profp);
-}
-
-
-int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile) {
-
-	nfd_profile_t *profp, *tmp;
-	lnf_rec_t *rec;
-	lnf_mem_cursor_t *cursor;
-	nfd_counter_t counters;
-	char buf[MAX_STRING];
-	char key[MAX_STRING];
-	int i, field;
-	int ignored = 0;
-
-	lnf_rec_init(&rec);
-
-	profp = *root_profile;
-
-	msg(MSG_DEBUG, "Start exporting data");
-	nfd_db_begin_transaction(&opt->db);
-
-	while (profp != NULL) {
-
-		/* main profile statistics */
-		nfd_db_store_stats(&opt->db, profp->id, "", opt->last_window_size, &profp->counters);
-
-
-		/* aggargated statistics from lnf_mem */
-		if (profp->mem != NULL) {
-
-			lnf_mem_first_c(profp->mem, &cursor);
-			while (cursor != NULL) {
-
-				lnf_mem_read_c(profp->mem, cursor, rec);
-
-				for (i = 0; i < MAX_AGGR_FIELDS; i++) {
-
-					field = profp->fields[i]; 
-
-					lnf_rec_fget(rec, field, &buf);
-
-					/* last field in list */
-					if (field == LNF_FLD_ZERO_) { break; }
-
-
-					switch (lnf_fld_type(field)) { 
-
-						case LNF_ADDR:
-							inet_ntop(AF_INET6, buf, key, MAX_STRING);
-							break;
-
-					}
-
-				}
-
-				/* get counters */
-				lnf_rec_fget(rec, LNF_FLD_DOCTETS, &counters.bytes);
-				lnf_rec_fget(rec, LNF_FLD_DPKTS, &counters.pkts);
-				lnf_rec_fget(rec, LNF_FLD_AGGR_FLOWS, &counters.flows);
-
-				/* update aggr mem statistics */
-				if (counters.pkts > opt->window_size * opt->export_min_pps) {
-					nfd_db_store_stats(&opt->db, profp->id, key, opt->last_window_size, &counters);
-				} else {
-					ignored++;
-				}
-
-				nfd_act_eval_profile(opt, profp, key, &counters);
-
-				/* go to next revord */
-				lnf_mem_next_c(profp->mem, &cursor);
-			}
-		} else {
-			/* profile without mem profile */
-			nfd_act_eval_profile(opt, profp, NULL, &profp->counters);
-		}
-
-
-		tmp = profp;
-		profp = profp->next_profile;
-
-		nfd_profile_free(tmp);
-	}	
-
-	*root_profile = NULL;
-
-	nfd_db_end_transaction(&opt->db);
-
-	msg(MSG_DEBUG, "Data exported (%d updates, %d inserts, %d ignores)", opt->db.updated, opt->db.inserted, ignored);
-
-	lnf_rec_free(rec);
-
-	return 1;	
 
 }
 
@@ -323,9 +141,10 @@ void dump_data_loop(nfd_options_t *opt) {
 		last_switched = time(NULL);
 
 		/* drump actual dump profile (previous read profile) into DB  */
+		nfd_prof_dump_all(opt);
 		db_export_profiles(opt, &opt->dump_root_profile);
 
-		nfd_act_expire(&opt->actions, opt->stop_delay);
+		nfd_act_expire(opt, &opt->actions, opt->stop_delay);
 
 		/* update counters */
 		/*

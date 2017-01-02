@@ -67,6 +67,8 @@ connect			return CONNECTTOK;
 export			return EXPORTTOK; 
 min				return MINTOK; 
 nterval			return INTERVALTOK; 
+dynamic			return DYNAMICTOK; 
+limit			return LIMITTOK; 
 \"(\\.|[^"])*\"	{
 					strncpy(yylval->string, yytext + 1, MAX_STRING - 1);
 					yylval->string[yyleng - 2] = '\0';
@@ -76,6 +78,10 @@ bps				return BITPSTOK;
 b\/s			return BITPSTOK; 
 pps				return PPSTOK; 
 p\/s			return PPSTOK; 
+f\/s			return FPSTOK; 
+fps				return FPSTOK; 
+flow/s			return FPSTOK; 
+flowps			return FPSTOK; 
 [K|k]			{
 					yylval->number = 1000;
 					return FACTOR;

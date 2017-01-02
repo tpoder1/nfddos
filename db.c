@@ -67,84 +67,36 @@ int nfd_db_init(nfd_db_t *db, nfd_db_type_t db_type, const char *connstr) {
 int nfd_db_mk_profile(nfd_profile_t **nfd_profile, char *id, char *filter, char *fields, nfd_counter_t *limits, char *errbuf) {
 
 	nfd_profile_t *tmp;
-	char *token = fields;
-	int field, numbits, numbits6, fieldcnt;
+//	char *token = fields;
+//	int field, numbits, numbits6, fieldcnt;
 
 	
-	tmp = calloc(1, sizeof(nfd_profile_t));
+	tmp = nfd_prof_new(id);
 
-	if (tmp == NULL) {
-		snprintf(errbuf, MAX_STRING, "Can not allocate memory in %s:%d", __FILE__, __LINE__);
-		return 0;
-	}
 
-	if (id != NULL && strnlen(id, MAX_STRING) > 0) {
+	if (tmp != NULL && id != NULL && strnlen(id, MAX_STRING) > 0) {
 		strncpy(tmp->id, id, MAX_STRING);
-		strncpy(tmp->name, id, MAX_STRING);
 	} else {
-		snprintf(errbuf, MAX_STRING, "Missing profile id %s:%d", __FILE__, __LINE__);
+		snprintf(errbuf, MAX_STRING, "Missing profile name/id %s:%d", __FILE__, __LINE__);
 		return 0;
 	}
 
-	/* parse aggregation fields */
-	if (fields != NULL && strnlen(fields, MAX_STRING) > 0) {
+	/* set filter */
+	nfd_prof_set_dynamic(tmp, fields);
 
-		if (lnf_mem_init(&tmp->mem) != LNF_OK) {
-			free(tmp);
-			snprintf(errbuf, MAX_STRING, "Can not initialize lnf_mem in %s:%d", __FILE__, __LINE__);
-			return 0;
-		}
-
-//		strncpy(tmp->fields, fields, MAX_STRING);
-		fieldcnt = 0;		
-
-		while ( (token = strsep(&fields, ",")) != NULL ) {
-
-			field = lnf_fld_parse(token, &numbits, &numbits6);
-	
-			if (field == LNF_FLD_ZERO_) {
-				snprintf(errbuf, MAX_STRING, "Can not parse field '%s' from %s", token, fields);
-				free(tmp);
-				return 0;
-			}
-
-			if (lnf_fld_type(field) == LNF_ADDR && (numbits > 32 || numbits6 > 128)) {
-				snprintf(errbuf, MAX_STRING, "Invalid bit size (%d/%d) for %s",
-						numbits, numbits6, token);
-				return 0;
-			}
-
-			msg(MSG_DEBUG, "Set field id %d for profile id %s", field, tmp->id);
-			lnf_mem_fadd(tmp->mem, field, LNF_AGGR_KEY, numbits, numbits6);
-
-			if (fieldcnt < MAX_AGGR_FIELDS - 1) {
-				tmp->fields[fieldcnt++] = field;
-			}
-
-		}
-
-		lnf_mem_fadd(tmp->mem, LNF_FLD_DPKTS, LNF_AGGR_SUM, 0, 0);
-		lnf_mem_fadd(tmp->mem, LNF_FLD_DOCTETS, LNF_AGGR_SUM, 0, 0);
-		lnf_mem_fadd(tmp->mem, LNF_FLD_AGGR_FLOWS, LNF_AGGR_SUM, 0, 0);
-	}
-
-
-	if (filter != NULL && strnlen(filter, MAX_STRING) > 0) {
-		if (lnf_filter_init_v2(&tmp->filter, filter) != LNF_OK) {
-			snprintf(errbuf, MAX_STRING, "Can not initlaise filter  (%s)", filter);
-			free(tmp);
-			return 0;
-		}
-	}
+	/* set filter */
+	nfd_prof_set_filter(tmp, filter);
 
 	/* set limits */
 	memcpy(&tmp->limits, limits, sizeof(nfd_counter_t));
 
+/*
 	if (!histc_init(&tmp->hcounter, HISTC_SLOTS, HISTC_SIZE)) {
 		free(tmp);
 		snprintf(errbuf, MAX_STRING, "Can not initialize hcounter in %s:%d", __FILE__, __LINE__);
 		return 0;
 	}
+*/
 
 	*nfd_profile = tmp;
 
@@ -176,12 +128,14 @@ int nfd_db_load_profiles(nfd_db_t *db, nfd_profile_t **root_profile) {
 		fields = PQgetvalue(res, i, 2);
 		buf = PQgetvalue(res, i, 3);
 		c.bytes = atoi(buf);
+
+
 		
 
 		if ( nfd_db_mk_profile(&tmp, id, filter, fields, &c, errbuf) ) {
 			/* add profile to root profile */
-			tmp->next_profile = *root_profile;
-			*root_profile = tmp;
+			nfd_prof_add(root_profile, tmp);
+
 			msg(MSG_DEBUG, "Added profile id=%s, filter=%s, aggr=%s", id, filter, fields);
 		} else {
 			msg(MSG_ERROR, "Can not create profile: %s", errbuf);

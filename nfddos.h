@@ -34,12 +34,14 @@ typedef struct nfd_profile_s {
 
 	char id[MAX_STRING];			/* profile id */
 	char name[MAX_STRING];			/* profile name */
+	char filter_expr[MAX_STRING];		/* filter expr */
+	char dynamic_fields_expr[MAX_STRING];	/* aggregation expr */
 	lnf_filter_t *filter;			/* input filter */
-	histc_t hcounter;				/* histogram counter */
+//	histc_t hcounter;				/* histogram counter */
 	nfd_counter_t counters;			/* profile counters */
 	nfd_counter_t limits;			/* profile limits */
 	lnf_mem_t *mem;					/* aggregation unit */
-	int fields[MAX_AGGR_FIELDS];	/* array of aggregation fields (last field 0 ) */
+	int dynamic_fields[MAX_AGGR_FIELDS];	/* array of aggregation fields (last field 0 ) */
 
 	struct nfd_profile_s  *next_profile;
 
@@ -51,7 +53,10 @@ typedef struct nfd_action_s {
 	char name[MAX_STRING];	
 	int id;							/* index to action array */
 	char action_dir[MAX_STRING];	/* fill directory name with action metadata */
-	int updated;
+	char filter_expr[MAX_STRING];	/* action filter */
+	char dynamic_field_val[MAX_STRING];	/* value of dynamic field */
+	time_t tm_updated;				/* timestamp of start and updated action */
+	time_t tm_start;
 
 } nfd_action_t;
 
@@ -98,7 +103,7 @@ typedef struct nfd_options_s {
 	nfd_db_type_t db_type;			/* type of db engine  */
 	nfd_db_t db;					/* db handle - see db.h  */
 	char db_connstr[MAX_STRING];	/* db connection string  */
-	time_t tm_display;				/* timestamp of las displayed statistics */
+//	time_t tm_display;				/* timestamp of las displayed statistics */
 
 	int	max_actions;				/* max number of actions */
 	nfd_actions_t	actions;		/* reference to action structure */

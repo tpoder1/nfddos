@@ -71,22 +71,22 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 
 %token OBRACE EBRACE SEMICOLON
 %token PROFILETOK LIMITTOK FILTERTOK
-%token BITPSTOK PPSTOK FILETOK STARTTOK STOPTOK
+%token BITPSTOK PPSTOK FPSTOK FILETOK STARTTOK STOPTOK
 %token OPTIONSTOK DEBUGTOK PIDTOK ACTIONTOK WHENTOK TRACKTOK
 %token LEVELTOK COMMANDTOK NEWTOK DELTOK 
-%token HASHTOK BUCKETSTOK DSTIPTOK WINDOWTOK
+%token HASHTOK BUCKETSTOK DSTIPTOK WINDOWTOK DYNAMICTOK 
 %token SLOTSTOK TIMETOK SIZETOK EXPIRETOK DELAYTOK INPUTTOK
 %token SHMTOK DBTOK CONNECTTOK EXPORTTOK INTERVALTOK MINTOK
 %token <number> NUMBER FACTOR
 %token <string> STRING
 /* %type <string> action */
-/* %type <nfd_profile> rule rules ruleparam ruleparams  */
+%type <nfd_profile> rule rules ruleparam ruleparams  
 /* %type <string> options optionparams option */
 
 %%
 
 config: /* empty */
-	options 
+	options rules
 	;
 
 options: /* empty */
@@ -109,5 +109,24 @@ option:
 	| ACTIONTOK STOPTOK COMMANDTOK STRING	{ strncpy(opt->exec_start, $4, MAX_STRING); }
 	| ACTIONTOK STOPTOK DELAYTOK NUMBER 	{ opt->stop_delay = $4; }
 	;
+
+rules: /* empty */
+	| rules rule;
+
+rule: 
+	PROFILETOK STRING OBRACE { $<nfd_profile>$ = nfd_prof_new($2); if (!$<nfd_profile>$) { YYABORT; } else { nfd_prof_add(&opt->dump_root_profile, $<nfd_profile>$); }; } ruleparams EBRACE	{ ;  } 
+	;
+
+ruleparams: /* empty */ 
+	| ruleparams { $<nfd_profile>$ = $<nfd_profile>0; } ruleparam SEMICOLON;
+	;
+
+ruleparam:
+	| FILTERTOK STRING 					{ if (!nfd_prof_set_filter($<nfd_profile>0, $2)) { msg(MSG_ERROR, "Can not set filter \"%s\"", $2); YYABORT; } ; }
+	| DYNAMICTOK STRING 				{ if (!nfd_prof_set_dynamic($<nfd_profile>0, $2)) { msg(MSG_ERROR, "Can not set dynamic \"%s\"", $2); YYABORT; } ; }
+	| LIMITTOK NUMBER FACTOR BITPSTOK 	{ $<nfd_profile>0->limits.bytes = ($2 * $3) / 8; }
+	| LIMITTOK NUMBER FACTOR PPSTOK 	{ $<nfd_profile>0->limits.pkts  = $2 * $3; }
+	| LIMITTOK NUMBER FACTOR FPSTOK 	{ $<nfd_profile>0->limits.flows = $2 * $3; }
+	; 
 
 %% 
