@@ -87,6 +87,7 @@ typedef struct nfd_options_s {
 //	int slot_size; 	 				/* window size to evaluate (in seconds) */
 //	int num_slots; 		 			/* number of tracking slots */
 	int stop_delay;					/* delay before shaping rule is removed */
+	int db_profiles;				/* load profiles from DB */
 //	int hash_buckets;				/* number of buckets in hash table */
 //	int last_expire_check;			/* timestam of last expire check */
 	char config_file[MAX_STRING];	/* config gile name */
@@ -121,9 +122,27 @@ typedef struct nfd_options_s {
 
 
 int nfd_parse_config(nfd_options_t *opt);
-nfd_profile_t * nfd_profile_new(nfd_options_t *opt, const char *name);
-int nfd_profile_set_filter(nfd_profile_t *nfd_profile, char *expr);
-int nf_profile_add_track(nfd_profile_t *nfd_profile, char *fields, char *filter);
+
+
+
+int nfd_prof_dump(nfd_options_t *opt, FILE *fh, nfd_profile_t *profp);
+int nfd_prof_dump_all(nfd_options_t *opt);
+nfd_profile_t * nfd_prof_new(char *name);
+int nfd_prof_add_flow(nfd_profile_t *profp, lnf_rec_t *recp);
+int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile);
+int nfd_prof_set_filter(nfd_profile_t *profp, char *filter); 
+int nfd_prof_set_dynamic(nfd_profile_t *profp, char *fields);
+int nfd_prof_add(nfd_profile_t **root_profile, nfd_profile_t *profp);
+void nfd_prof_free(nfd_profile_t *profp);
+
+
+int nfd_act_init(nfd_actions_t *act, int max_actions);
+int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a);
+int nfd_act_cmd(nfd_options_t *opt, nfd_profile_t *profp, nfd_action_t *a, nfd_action_cmd_t action_cmd);
+int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *dynamic_field_val, nfd_profile_t *profp);
+int nfd_act_expire(nfd_options_t *opt, nfd_actions_t *act, int expire_time);
+int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *dynamic_field_val, nfd_counter_t *c);
+
 
 int nfd_db_init(nfd_db_t *db, nfd_db_type_t db_type, const char *connstr);
 
@@ -138,6 +157,17 @@ int sort_callback(char *key1, char *val1, char *key2, char *val2, void *p);
 
 
 int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *key, nfd_counter_t *c);
+
+typedef void* yyscan_t;
+
+int yyget_lineno (yyscan_t yyscanner );
+int yyparse (yyscan_t scanner, nfd_options_t *opt);
+int yylex_init (yyscan_t* scanner);
+void yyset_in  (FILE * in_str ,yyscan_t yyscanner );
+int yyparse (yyscan_t scanner, nfd_options_t *opt);
+int yylex_destroy (yyscan_t yyscanner );
+
+
 
 
 #endif // __NFDDOS_H_

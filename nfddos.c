@@ -72,7 +72,6 @@ void read_data_loop(nfd_options_t *opt) {
 	lnf_ring_t *ringp;
 	lnf_rec_t *recp;
 	nfd_profile_t *profp;
-	time_t	tm;
 
 
 	if (lnf_ring_init(&ringp, opt->shm, 0) != LNF_OK) {
@@ -93,7 +92,7 @@ void read_data_loop(nfd_options_t *opt) {
 		profp = opt->read_root_profile;
 
 		while (profp != NULL) {
-			nfd_profile_add_flow(profp, recp);
+			nfd_prof_add_flow(profp, recp);
 			profp = profp->next_profile;
 		}	
 
@@ -121,7 +120,11 @@ void dump_data_loop(nfd_options_t *opt) {
 	while (1) { 
 
 		/* load new profiles configuration into dump profile taht will be read profile in while  */
-		nfd_db_load_profiles(&opt->db, &opt->dump_root_profile);
+		nfd_parse_config(opt);
+
+		if (opt->db_profiles) {
+			nfd_db_load_profiles(&opt->db, &opt->dump_root_profile);
+		}
 
 		opt->last_window_size = time(NULL) - last_switched;
 		msg(MSG_DEBUG, "Last windows size %d", opt->last_window_size);
@@ -251,7 +254,9 @@ int main(int argc, char *argv[]) {
 	}
 	
 	/* load profiles for first run */
-	nfd_db_load_profiles(&opt.db, &opt.read_root_profile);
+	if (opt.db_profiles) {
+		nfd_db_load_profiles(&opt.db, &opt.read_root_profile);
+	}
 
 	/* execute therad with read loop */
 	if (pthread_create(&opt.read_thread, NULL, (void *)&read_data_loop, (void *)&opt) != 0) {
