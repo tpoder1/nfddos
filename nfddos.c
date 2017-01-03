@@ -96,13 +96,12 @@ void read_data_loop(nfd_options_t *opt) {
 			profp = profp->next_profile;
 		}	
 
-/*
-		tm = time(NULL);
-		if (opt->tm_display != tm) {
-			nfd_dump_profiles(opt);
-			opt->tm_display = tm;
+		/* store flow in queue */
+		if (opt->queue_file != NULL) {
+			if (lnf_write(opt->queue_file, recp) != LNF_OK) {
+				msg(MSG_ERROR, "Can not store flow record in queuefile");
+			}
 		}
-*/
 
 		pthread_mutex_unlock(&opt->read_lock);
 	}
@@ -137,6 +136,9 @@ void dump_data_loop(nfd_options_t *opt) {
 		tmp = opt->read_root_profile;
 		opt->read_root_profile = opt->dump_root_profile;
 		opt->dump_root_profile = tmp;
+
+		/* rotate queuefiles */
+		nfd_queue_shift(opt);
 
 		pthread_mutex_unlock(&opt->read_lock);
 		pthread_mutex_unlock(&opt->dump_lock);
@@ -192,7 +194,9 @@ int main(int argc, char *argv[]) {
 		.export_min_pps = 1,
 		.read_root_profile = NULL,
 		.dump_root_profile = NULL,
-		.max_actions = 512
+		.max_actions = 512,
+		.queue_num = 10,
+		.queue_backtrack = 10
 		};
 
 
@@ -202,7 +206,7 @@ int main(int argc, char *argv[]) {
 	strcpy(opt.exec_stop, "./nfddos-stop.sh");	
 	strcpy(opt.action_dir, "./actions/");	
 	strcpy(opt.status_file, "./nfddos.status");	
-	strcpy(opt.flow_queue_file, "./nfddos-queue.pcap");	
+	strcpy(opt.queue_dir, "./nfddos-queue/");	
 	strcpy(opt.db_connstr, "dbname=nfddos user=nfddos");	
 	strcpy(opt.shm, "libnf-shm");	
 
@@ -244,6 +248,11 @@ int main(int argc, char *argv[]) {
 
 	/* connect to DB */
 	if (!nfd_db_init(&opt.db, opt.db_type, opt.db_connstr)) {
+		exit(1);
+	}
+
+	/* init queue file */
+	if (!nfd_queue_shift(&opt)) {
 		exit(1);
 	}
 

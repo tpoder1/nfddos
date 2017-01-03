@@ -55,6 +55,8 @@ typedef struct nfd_action_s {
 	char action_dir[MAX_STRING];	/* fill directory name with action metadata */
 	char filter_expr[MAX_STRING];	/* action filter */
 	char dynamic_field_val[MAX_STRING];	/* value of dynamic field */
+	lnf_filter_t *filter;			/* action filter */
+	lnf_file_t *file;				/* action output file */
 	time_t tm_updated;				/* timestamp of start and updated action */
 	time_t tm_start;
 
@@ -94,7 +96,10 @@ typedef struct nfd_options_s {
 	char pid_file[MAX_STRING];		/* file with PID */
 	int pid_file_fromarg;			/* pid file set on command line  */
 	char status_file[MAX_STRING];	/* file to export status data */
-	char flow_queue_file[MAX_STRING];	/* file to temporary store flow data */
+	char queue_dir[MAX_STRING];		/* file to temporary store flow data */
+	int  queue_num;					/* number of time windows stored in queue  */
+	int  queue_backtrack;			/* number of time windows to backtrack when flow data for profile is created   */
+	lnf_file_t  *queue_file;		/* open lnf_file_t handler  */
 	char shm[MAX_STRING];			/* shm name for ringbuf */
 
 	char exec_start[MAX_STRING];	/* command to exec new rule */
@@ -158,6 +163,9 @@ int sort_callback(char *key1, char *val1, char *key2, char *val2, void *p);
 
 int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *key, nfd_counter_t *c);
 
+int nfd_queue_shift(nfd_options_t *opt);
+int nfd_queue_add_flow(nfd_options_t *opt, lnf_file_t *output, lnf_filter_t *filter, int backtrack);
+
 typedef void* yyscan_t;
 
 int yyget_lineno (yyscan_t yyscanner );
@@ -166,7 +174,6 @@ int yylex_init (yyscan_t* scanner);
 void yyset_in  (FILE * in_str ,yyscan_t yyscanner );
 int yyparse (yyscan_t scanner, nfd_options_t *opt);
 int yylex_destroy (yyscan_t yyscanner );
-
 
 
 

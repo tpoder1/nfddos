@@ -61,9 +61,7 @@ int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a) {
 int nfd_act_cmd(nfd_options_t *opt, nfd_profile_t *profp, nfd_action_t *a, nfd_action_cmd_t action_cmd) {
 
 	char cmd[MAX_STRING];
-	FILE *cmdh, *profh;
-	struct stat st = {0};
-	char buf[MAX_STRING];	
+	FILE *cmdh;
 
 
 	/* build command */
@@ -77,29 +75,6 @@ int nfd_act_cmd(nfd_options_t *opt, nfd_profile_t *profp, nfd_action_t *a, nfd_a
 		default: 
 				return 0; 
 				break;
-	}
-
-	/* check and try to create action dir */
-	if (stat(a->action_dir, &st) == -1) {
-		if (mkdir(a->action_dir, 0700) < 0) {
-			msg(MSG_ERROR, "Can not create %s direcorty (%s).", a->action_dir, strerror(errno));
-			return 0;
-		}
-	}
-
-	/* update data in action dir */
-	if (profp != NULL) {
-		snprintf(buf, MAX_STRING, "%s/%s", a->action_dir, PROFILE_FN);
-		profh = fopen(buf, "w");
-
-		if (profh != NULL) {
-			nfd_prof_dump(opt, profh, profp);
-			nfd_act_dump(opt, profh, a);
-			fclose(profh);
-		} else {
-			msg(MSG_ERROR, "Can not create profile file %s (%s).", buf, strerror(errno));
-		}
-
 	}
 
 	cmdh = popen(cmd, "w");
@@ -119,14 +94,84 @@ int nfd_act_cmd(nfd_options_t *opt, nfd_profile_t *profp, nfd_action_t *a, nfd_a
 	return 1;
 }
 
+/* prepare output dir and prepare data into it */
+int nfd_act_update_dir(nfd_options_t *opt, nfd_action_t *a, nfd_profile_t *profp) {
+
+	char buf[MAX_STRING];
+	struct tm *tmp;
+	FILE * profh;
+	struct stat st = {0};
+
+
+	a->tm_updated = a->tm_start;
+	tmp = localtime(&a->tm_start);
+	if (tmp == NULL) {
+		msg(MSG_ERROR, "Can get time %s:%d", __FILE__, __LINE__);
+		return 0;
+	}
+
+	strftime(buf, MAX_STRING, "%F-%H-%M-%S", tmp);
+	snprintf(a->action_dir, MAX_STRING, "%s/%s.%03d", opt->action_dir, buf, a->id);
+
+	/* check and try to create action dir */
+	if (stat(a->action_dir, &st) == -1) {
+		if (mkdir(a->action_dir, 0700) < 0) {
+			msg(MSG_ERROR, "Can not create %s direcorty (%s).", a->action_dir, strerror(errno));
+			return 0;
+		}
+	}
+
+	/* steps performed when a new action is invoked */
+	strncpy(a->filter_expr, profp->filter_expr, MAX_STRING);
+
+	/* prepare profile filter */
+	if (a->filter != NULL && ( strncmp(a->filter_expr, "", MAX_STRING) != 0 ) ) {
+		if (lnf_filter_init_v2(&a->filter, a->filter_expr) != LNF_OK) {
+			msg(MSG_ERROR, "Can not build filter \"%s\" %s:%d",a->filter_expr,  __FILE__, __LINE__);
+		}
+	}
+		
+
+	/* update data in action dir */
+	if (profp != NULL) {
+		snprintf(buf, MAX_STRING, "%s/%s", a->action_dir, PROFILE_FN);
+		profh = fopen(buf, "w");
+
+		if (profh != NULL) {
+			nfd_prof_dump(opt, profh, profp);
+			nfd_act_dump(opt, profh, a);
+			fclose(profh);
+		} else {
+			msg(MSG_ERROR, "Can not create profile file %s (%s).", buf, strerror(errno));
+		}
+	}
+
+
+	/* output flow file */
+	if (a->file == NULL) {
+		snprintf(buf, MAX_STRING, "%s/%s", a->action_dir, NFCAP_FN);
+		if (lnf_open(&a->file, buf, LNF_WRITE, "nfddos") != LNF_OK) {
+			msg(MSG_ERROR, "Can not open pcap file  \"%s\" %s:%d", buf,  __FILE__, __LINE__);
+			a->file = NULL;
+		}
+
+		/* copy data from queue */
+		if (a->file != NULL) {
+			nfd_queue_add_flow(opt, a->file, a->filter, opt->queue_backtrack);
+		}
+	}
+
+
+	return 1;
+
+}
+
 /* update or insert new action */
 int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *dynamic_field_val, nfd_profile_t *profp) {
 
 	nfd_action_t *a;
 	int i;
-	char buf[MAX_STRING];
 	char name[MAX_STRING];
-	struct tm *tmp;
 
 	if (dynamic_field_val == NULL || strncmp(dynamic_field_val, "", MAX_STRING) == 0) {
 		snprintf(name, MAX_STRING, "%s", profp->name);
@@ -172,22 +217,16 @@ int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *dynamic_field_v
 
 		/* build action dir */
 		a->tm_start = time(NULL);
-		a->tm_updated = a->tm_start;
-		tmp = localtime(&a->tm_start);
-		if (tmp == NULL) {
-			msg(MSG_ERROR, "Can get time %s:%d", __FILE__, __LINE__);
-			return 0;
-		}
-		strftime(buf, MAX_STRING, "%F-%H-%M-%S", tmp);
-		snprintf(a->action_dir, MAX_STRING, "%s/%s.%03d", opt->action_dir, buf, a->id);
 
-		/* steps performed when a new action is invoked */
-		strncpy(a->filter_expr, profp->filter_expr, MAX_STRING);
 		strncpy(a->name, name, MAX_STRING);
 		if (dynamic_field_val != NULL) {
 			strncpy(a->dynamic_field_val, dynamic_field_val, MAX_STRING);
 		}
 
+		/* prepare output dir */
+		nfd_act_update_dir(opt, a, profp);
+
+		/* all data are prepared now - exec start command */
 		nfd_act_cmd(opt, profp, a, NFD_ACTION_START);
 
 		msg(MSG_INFO, "Starting action for profile %s dir %s", name, a->action_dir);
@@ -214,6 +253,14 @@ int nfd_act_expire(nfd_options_t *opt, nfd_actions_t *act, int expire_time) {
 	for (i = 0; i < act->max_actions; i++) {
 		if  ( act->actions[i] != NULL && act->actions[i]->tm_updated + expire_time < time(NULL)) { 
 			a = act->actions[i];
+
+			if (a->filter != NULL) {
+				lnf_filter_free(a->filter);
+			}
+
+			if (a->file != NULL) {
+				lnf_close(a->file);
+			}
 
 			msg(MSG_INFO, "Stopping action for profile %s dir %s", a->name, a->action_dir);
 
