@@ -88,6 +88,12 @@ void read_data_loop(nfd_options_t *opt) {
 
 		pthread_mutex_lock(&opt->read_lock);
 
+		/* match general filter */
+		if (opt->filter != NULL && !lnf_filter_match(opt->filter, recp)) {
+			pthread_mutex_unlock(&opt->read_lock);
+			continue;
+		}
+
 
 		profp = opt->read_root_profile;
 
@@ -119,7 +125,9 @@ void dump_data_loop(nfd_options_t *opt) {
 	while (1) { 
 
 		/* load new profiles configuration into dump profile taht will be read profile in while  */
-		nfd_parse_config(opt);
+		pthread_mutex_lock(&opt->read_lock);
+		nfd_cfg_parse(opt);
+		pthread_mutex_unlock(&opt->read_lock);
 
 		if (opt->db_profiles) {
 			nfd_db_load_profiles(&opt->db, &opt->dump_root_profile);
@@ -152,13 +160,13 @@ void dump_data_loop(nfd_options_t *opt) {
 		nfd_act_expire(opt, &opt->actions, opt->stop_delay);
 
 		/* update counters */
-		/*
+		
 		msg(MSG_DEBUG, "Starting counters update");
 
-		nfd_db_update_counters(&opt->db);
+//		nfd_db_update_counters(&opt->db);
 
 		msg(MSG_DEBUG, "Finished counters update");
-		*/
+	
 
 		/* wait rest of the time */
 		remains = opt->window_size - (time(NULL) - last_switched);
@@ -196,7 +204,7 @@ int main(int argc, char *argv[]) {
 		.dump_root_profile = NULL,
 		.max_actions = 512,
 		.queue_num = 10,
-		.queue_backtrack = 10
+		.queue_backtrack = 1
 		};
 
 
@@ -234,7 +242,7 @@ int main(int argc, char *argv[]) {
 
 
 	/* process config file */
-	if (!nfd_parse_config(&opt)) {
+	if (!nfd_cfg_parse(&opt)) {
 		exit(1);
 	}
 

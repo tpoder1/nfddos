@@ -47,6 +47,12 @@ typedef struct nfd_profile_s {
 
 } nfd_profile_t;
 
+/* additional structutres for dynamic profile */
+typedef struct nfd_dyn_profile_s {
+	char key[MAX_STRING];			/* string representation of values */
+	char filter_expr[MAX_STRING];	/* filter expr for filter */
+} nfd_dyn_profile_t;
+
 /* one action entry */
 typedef struct nfd_action_s {
 
@@ -54,7 +60,9 @@ typedef struct nfd_action_s {
 	int id;							/* index to action array */
 	char action_dir[MAX_STRING];	/* fill directory name with action metadata */
 	char filter_expr[MAX_STRING];	/* action filter */
-	char dynamic_field_val[MAX_STRING];	/* value of dynamic field */
+	nfd_counter_t counters;			/* last conters value */
+	int dynamic;					/* is the field dynamic ? */
+	nfd_dyn_profile_t dp;			/* copy of the dynamic profile from parent profile */
 	lnf_filter_t *filter;			/* action filter */
 	lnf_file_t *file;				/* action output file */
 	time_t tm_updated;				/* timestamp of start and updated action */
@@ -86,6 +94,7 @@ typedef struct nfd_options_s {
 	int export_interval;   			/* period of exporting data to DB */
 	int window_size;				/* window size to evaluate */
 	int last_window_size;			/* real last window size */
+	lnf_filter_t *filter;			/* general filter */
 //	int slot_size; 	 				/* window size to evaluate (in seconds) */
 //	int num_slots; 		 			/* number of tracking slots */
 	int stop_delay;					/* delay before shaping rule is removed */
@@ -126,7 +135,8 @@ typedef struct nfd_options_s {
 } nfd_options_t;
 
 
-int nfd_parse_config(nfd_options_t *opt);
+int nfd_cfg_parse(nfd_options_t *opt);
+int nfd_cfg_set_filter(nfd_options_t *opt, char *filter);
 
 
 
@@ -144,9 +154,9 @@ void nfd_prof_free(nfd_profile_t *profp);
 int nfd_act_init(nfd_actions_t *act, int max_actions);
 int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a);
 int nfd_act_cmd(nfd_options_t *opt, nfd_profile_t *profp, nfd_action_t *a, nfd_action_cmd_t action_cmd);
-int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *dynamic_field_val, nfd_profile_t *profp);
+int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, nfd_dyn_profile_t *dp, nfd_profile_t *profp, nfd_counter_t *counters);
 int nfd_act_expire(nfd_options_t *opt, nfd_actions_t *act, int expire_time);
-int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *dynamic_field_val, nfd_counter_t *c);
+int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, nfd_dyn_profile_t *dp, nfd_counter_t *c);
 
 
 int nfd_db_init(nfd_db_t *db, nfd_db_type_t db_type, const char *connstr);
@@ -160,8 +170,6 @@ void nfd_db_free(nfd_db_t *db);
 void aggr_callback(char *key, char *hval, char *uval, void *p);
 int sort_callback(char *key1, char *val1, char *key2, char *val2, void *p);
 
-
-int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *key, nfd_counter_t *c);
 
 int nfd_queue_shift(nfd_options_t *opt);
 int nfd_queue_add_flow(nfd_options_t *opt, lnf_file_t *output, lnf_filter_t *filter, int backtrack);

@@ -32,7 +32,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #endif
 
 
-int nfd_parse_config(nfd_options_t *opt) {
+int nfd_cfg_parse(nfd_options_t *opt) {
 
 	yyscan_t scanner;
 //	YY_BUFFER_STATE buf;
@@ -71,5 +71,23 @@ int nfd_parse_config(nfd_options_t *opt) {
 }
 
 
+int nfd_cfg_set_filter(nfd_options_t *opt, char *filter) {
+
+	if (filter == NULL || strnlen(filter, MAX_STRING) == 0) {
+		return 0;
+	}
+
+	if (opt->filter != NULL) {
+		lnf_filter_free(opt->filter); 
+		opt->filter = NULL;
+	}
+
+	if (lnf_filter_init_v2(&opt->filter, filter) != LNF_OK) {
+		msg(MSG_ERROR, "Invalid input filter %s\n", filter);
+		return 0;
+	}
+
+	return 1;
+}
 
 

@@ -100,8 +100,9 @@ optionparams: /* empty */
 option:
 	| DEBUGTOK LEVELTOK NUMBER 		{ if (!opt->debug_fromarg) opt->debug = $3; }
 	| PIDTOK FILETOK STRING         { if (!opt->pid_file_fromarg) strncpy(opt->pid_file, $3, MAX_STRING); } 
-	| WINDOWTOK SIZETOK NUMBER 				{ opt->window_size = $3; }
-	| INPUTTOK SHMTOK STRING         		{ strncpy(opt->shm, $3, MAX_STRING); } 
+	| WINDOWTOK SIZETOK NUMBER 			{ opt->window_size = $3; }
+	| INPUTTOK SHMTOK STRING       		{ strncpy(opt->shm, $3, MAX_STRING); } 
+	| INPUTTOK FILTERTOK STRING		{ if (!nfd_cfg_set_filter(opt, $3)) { msg(MSG_ERROR, "Can not set filter \"%s\"", $3); YYABORT; } ; }
 	| DBTOK CONNECTTOK STRING         		{ strncpy(opt->db_connstr, $3, MAX_STRING); } 
 	| DBTOK EXPORTTOK INTERVALTOK NUMBER 	{ opt->export_interval = $4; }
 	| DBTOK EXPORTTOK MINTOK PPSTOK NUMBER 	{ opt->export_min_pps = $5; }

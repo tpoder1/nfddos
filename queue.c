@@ -25,10 +25,11 @@ int nfd_queue_shift(nfd_options_t *opt) {
 		/* rotate files */
 	}
 
+	msg(MSG_DEBUG, "Rotating queue files");
 	for (i = opt->queue_num; i > 0; i--) {
 		snprintf(buf,  MAX_STRING, QUEUE_FILE_FMT, opt->queue_dir, i - 1 );		
 		snprintf(buf2, MAX_STRING, QUEUE_FILE_FMT, opt->queue_dir, i);
-		msg(MSG_DEBUG, "Renaming file %s -> %s", buf, buf2);
+//		msg(MSG_DEBUG, "Renaming file %s -> %s", buf, buf2);
 		rename(buf, buf2);
 	}
 

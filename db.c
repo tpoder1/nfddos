@@ -30,7 +30,7 @@ int nfd_db_init(nfd_db_t *db, nfd_db_type_t db_type, const char *connstr) {
             "UPDATE nfd_counters SET "
 			"bytes = bytes + $3::int8, pkts = pkts + $4::int8, flows = flows + $5::int8, " 
 			"bytes_ps = $6::int8, pkts_ps = $7::int8, flows_ps = $8::int8, updated = NOW() " 
-			"WHERE profile_id = $1 and aggr_key = $2",
+			"WHERE profile = $1 and dynamic_profile = $2",
             5,
         //    (const Oid *) oidTypes
 			NULL
@@ -46,7 +46,7 @@ int nfd_db_init(nfd_db_t *db, nfd_db_type_t db_type, const char *connstr) {
 	/* prepare insert statement */
 	strncpy(db->ins_name, "insert_counters", MAX_STRING);
 	res = PQprepare(db->conn, db->ins_name, 
-            "INSERT INTO nfd_counters (profile_id, aggr_key, updated, bytes, pkts, flows, bytes_ps, pkts_ps, flows_ps) "
+            "INSERT INTO nfd_counters (profile, dynamic_profile, updated, bytes, pkts, flows, bytes_ps, pkts_ps, flows_ps) "
 			"VALUES ($1, $2, NOW(), $3::int8, $4::int8, $5::int8, $6::int8, $7::int8, $8::int8)",
             5,
         //    (const Oid *) oidTypes
@@ -206,7 +206,7 @@ int nfd_db_update_counters(nfd_db_t *db) {
 
 }
 
-int nfd_db_store_stats(nfd_db_t *db, char *id, char *key, int window, nfd_counter_t *c) {
+int nfd_db_store_stats(nfd_db_t *db, char *profile, char *dynamic_profile, int window, nfd_counter_t *c) {
 
 	int paramFormats[8] = {0, 0, 1, 1, 1, 1, 1, 1};
 	const char* paramValues[8];
@@ -214,14 +214,14 @@ int nfd_db_store_stats(nfd_db_t *db, char *id, char *key, int window, nfd_counte
 	PGresult *res;
 	int64_t bytes, pkts, flows, bytes_ps, pkts_ps, flows_ps;
 
-	paramValues[0] = id;
-	if (id != NULL) {
-		paramLengths[0] = strlen(id);
+	paramValues[0] = profile;
+	if (profile != NULL) {
+		paramLengths[0] = strlen(profile);
 	}
 
-	paramValues[1] = key;
-	if (key != NULL) {
-		paramLengths[1] = strlen(key);
+	paramValues[1] = dynamic_profile;
+	if (dynamic_profile != NULL) {
+		paramLengths[1] = strlen(dynamic_profile);
 	}
 
 	bytes_ps = c->bytes / window;

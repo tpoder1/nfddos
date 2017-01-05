@@ -32,7 +32,16 @@ int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a) {
 	char buf[MAX_STRING];
 	struct tm *tmp;
 
-	fprintf(fh, "action_name: %s\n", a->name);
+	if (a->dynamic && opt->last_window_size > 0) {
+		fprintf(fh, "dynamic_traffic:     %10llu ", (8 * (LLUI)a->counters.bytes) / opt->last_window_size);
+		fprintf(fh, "%6llu ", (LLUI)a->counters.pkts / opt->last_window_size);
+		fprintf(fh, "%6llu ", (LLUI)a->counters.flows / opt->last_window_size);
+		fprintf(fh, "(%llu Mb/s, ", ((8 * (LLUI)a->counters.bytes) / opt->last_window_size) / 1000 / 1000);
+		fprintf(fh, "%llu kp/s, ", ((LLUI)a->counters.pkts / opt->last_window_size) / 1000 );
+		fprintf(fh, "%llu flow/s)\n", (LLUI)a->counters.flows / opt->last_window_size);
+    }
+
+	fprintf(fh, "action_name:         %s\n", a->name);
 
 	tmp = localtime(&a->tm_start);
 	if (tmp == NULL) {
@@ -40,7 +49,7 @@ int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a) {
 		return 0;
 	}
 	strftime(buf, MAX_STRING, "%F %H:%M:%S", tmp);
-	fprintf(fh, "action_start: %u (%s)\n", (unsigned int)a->tm_start, buf);
+	fprintf(fh, "action_start:        %u (%s)\n", (unsigned int)a->tm_start, buf);
 
 	tmp = localtime(&a->tm_updated);
 	if (tmp == NULL) {
@@ -48,11 +57,11 @@ int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a) {
 		return 0;
 	}
 	strftime(buf, MAX_STRING, "%F %H:%M:%S", tmp);
-	fprintf(fh, "action_updated: %u (%s)\n", (unsigned int)a->tm_updated, buf);
+	fprintf(fh, "action_updated:      %u (%s)\n", (unsigned int)a->tm_updated, buf);
 
-	fprintf(fh, "action_filter: %s\n", a->filter_expr);
-	if (a->dynamic_field_val)  {
-		fprintf(fh, "dynamic_field_value: %s\n", a->dynamic_field_val);
+	fprintf(fh, "action_filter:       %s\n", a->filter_expr);
+	if (a->dynamic)  {
+		fprintf(fh, "dynamic_value:       %s\n", a->dp.key);
 	}
 
 	return 1;
@@ -67,10 +76,10 @@ int nfd_act_cmd(nfd_options_t *opt, nfd_profile_t *profp, nfd_action_t *a, nfd_a
 	/* build command */
 	switch (action_cmd) {
 		case NFD_ACTION_START: 
-				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_start, "new", a->action_dir); 
+				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_start, "start", a->action_dir); 
 				break;
 		case NFD_ACTION_STOP: 
-				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_stop, "del", a->action_dir); 
+				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_stop, "stop", a->action_dir); 
 				break;
 		default: 
 				return 0; 
@@ -124,8 +133,14 @@ int nfd_act_update_dir(nfd_options_t *opt, nfd_action_t *a, nfd_profile_t *profp
 	/* steps performed when a new action is invoked */
 	strncpy(a->filter_expr, profp->filter_expr, MAX_STRING);
 
+	/* if the filed is dunamic - add expr from dynamic field filter */
+	if (a->dynamic) {
+		strcpy(buf, a->filter_expr);
+		snprintf(a->filter_expr, MAX_STRING, "(%s) and (%s)", buf, a->dp.filter_expr);
+	}
+
 	/* prepare profile filter */
-	if (a->filter != NULL && ( strncmp(a->filter_expr, "", MAX_STRING) != 0 ) ) {
+	if (a->filter == NULL && ( strncmp(a->filter_expr, "", MAX_STRING) != 0 ) ) {
 		if (lnf_filter_init_v2(&a->filter, a->filter_expr) != LNF_OK) {
 			msg(MSG_ERROR, "Can not build filter \"%s\" %s:%d",a->filter_expr,  __FILE__, __LINE__);
 		}
@@ -159,6 +174,8 @@ int nfd_act_update_dir(nfd_options_t *opt, nfd_action_t *a, nfd_profile_t *profp
 		if (a->file != NULL) {
 			nfd_queue_add_flow(opt, a->file, a->filter, opt->queue_backtrack);
 		}
+		lnf_close(a->file);
+		a->file = NULL;
 	}
 
 
@@ -167,16 +184,16 @@ int nfd_act_update_dir(nfd_options_t *opt, nfd_action_t *a, nfd_profile_t *profp
 }
 
 /* update or insert new action */
-int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *dynamic_field_val, nfd_profile_t *profp) {
+int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, nfd_dyn_profile_t *dp, nfd_profile_t *profp, nfd_counter_t *counters) {
 
 	nfd_action_t *a;
 	int i;
 	char name[MAX_STRING];
 
-	if (dynamic_field_val == NULL || strncmp(dynamic_field_val, "", MAX_STRING) == 0) {
+	if (dp == NULL) {
 		snprintf(name, MAX_STRING, "%s", profp->name);
 	} else {
-		snprintf(name, MAX_STRING, "%s/%s", profp->name, dynamic_field_val);
+		snprintf(name, MAX_STRING, "%s/%s", profp->name, dp->key);
 	}
 
 	msg(MSG_DEBUG, "Profile %s reached the limit", name);
@@ -219,8 +236,11 @@ int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *dynamic_field_v
 		a->tm_start = time(NULL);
 
 		strncpy(a->name, name, MAX_STRING);
-		if (dynamic_field_val != NULL) {
-			strncpy(a->dynamic_field_val, dynamic_field_val, MAX_STRING);
+		memcpy(&a->counters, counters, sizeof(nfd_counter_t));
+	
+		if (dp != NULL) {
+			a->dynamic = 1;
+			memcpy(&a->dp, dp, sizeof(nfd_dyn_profile_t));
 		}
 
 		/* prepare output dir */
@@ -238,6 +258,7 @@ int nfd_act_upsert(nfd_options_t *opt, nfd_actions_t *act, char *dynamic_field_v
 
 	/* we update information in existing profile */
 	a->tm_updated = time(NULL);
+	memcpy(&a->counters, counters, sizeof(nfd_counter_t));
 
 	return 1;
 
@@ -275,7 +296,7 @@ int nfd_act_expire(nfd_options_t *opt, nfd_actions_t *act, int expire_time) {
 }
 
 /* evaluate limits in profile and if limits are reached take action */
-int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *dynamic_field_val, nfd_counter_t *c) {
+int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, nfd_dyn_profile_t *dp, nfd_counter_t *c) {
 
 	int over_limit = 0;
 	int w = opt->last_window_size;
@@ -298,8 +319,7 @@ int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, char *dynamic
 		return 0;
 	}
 
-
-	nfd_act_upsert(opt, &opt->actions, dynamic_field_val, profp);
+	nfd_act_upsert(opt, &opt->actions, dp, profp, c);
 
 	return 1;
 }
