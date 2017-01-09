@@ -212,6 +212,7 @@ int main(int argc, char *argv[]) {
 	strcpy(opt.pid_file, "/var/run/nfddos.pid");	
 	strcpy(opt.exec_start, "./nfddos-start.sh");	
 	strcpy(opt.exec_stop, "./nfddos-stop.sh");	
+	strcpy(opt.exec_status, "./nfddos-status.sh");	
 	strcpy(opt.action_dir, "./actions/");	
 	strcpy(opt.status_file, "./nfddos.status");	
 	strcpy(opt.queue_dir, "./nfddos-queue/");	

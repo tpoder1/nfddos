@@ -56,7 +56,7 @@ int nfd_cfg_parse(nfd_options_t *opt) {
 
 	yylex_destroy(scanner);
 
-	//fclose(fp);
+	fclose(fp);
 
 	if (parse_ret == 0) {
 		msg(MSG_INFO, "Config file parsed");

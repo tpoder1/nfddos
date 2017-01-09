@@ -80,7 +80,8 @@ typedef struct nfd_actions_s {
 
 typedef enum {
 	NFD_ACTION_START,
-	NFD_ACTION_STOP
+	NFD_ACTION_STOP,
+	NFD_ACTION_STATUS
 } nfd_action_cmd_t;
 
 
@@ -113,6 +114,7 @@ typedef struct nfd_options_s {
 
 	char exec_start[MAX_STRING];	/* command to exec new rule */
 	char exec_stop[MAX_STRING];		/* command to exec to remove rule */
+	char exec_status[MAX_STRING];	/* exec when status file is updated */
 	char action_dir[MAX_STRING];	/* directory to put profile/action data during action */
 
 	nfd_db_type_t db_type;			/* type of db engine  */

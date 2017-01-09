@@ -33,7 +33,7 @@ int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a) {
 	struct tm *tmp;
 
 	if (a->dynamic && opt->last_window_size > 0) {
-		fprintf(fh, "dynamic_traffic:     %10llu ", (8 * (LLUI)a->counters.bytes) / opt->last_window_size);
+		fprintf(fh, "dynamic_traffic:     %10llu ", (LLUI)a->counters.bytes / opt->last_window_size);
 		fprintf(fh, "%6llu ", (LLUI)a->counters.pkts / opt->last_window_size);
 		fprintf(fh, "%6llu ", (LLUI)a->counters.flows / opt->last_window_size);
 		fprintf(fh, "(%llu Mb/s, ", ((8 * (LLUI)a->counters.bytes) / opt->last_window_size) / 1000 / 1000);
@@ -80,6 +80,9 @@ int nfd_act_cmd(nfd_options_t *opt, nfd_profile_t *profp, nfd_action_t *a, nfd_a
 				break;
 		case NFD_ACTION_STOP: 
 				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_stop, "stop", a->action_dir); 
+				break;
+		case NFD_ACTION_STATUS: 
+				snprintf(cmd, MAX_STRING, "%s %s %s", opt->exec_status, "status", opt->status_file); 
 				break;
 		default: 
 				return 0; 

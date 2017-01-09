@@ -55,7 +55,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 	//void yyerror(yyscan_t scanner, ff_t *filter, char *msg) {
 	void yyerror(yyscan_t scanner, nfd_options_t *opt, char *errmsg) {
 
-		msg(MSG_ERROR, "config file: %s (line: %d)\n", errmsg, yyget_lineno(scanner) );
+		msg(MSG_ERROR, "config file: %s (line: %d)", errmsg, yyget_lineno(scanner) );
 //		ff_set_error(filter, msg);
 	}
 
@@ -126,6 +126,9 @@ ruleparams: /* empty */
 ruleparam:
 	| FILTERTOK STRING 					{ if (!nfd_prof_set_filter($<nfd_profile>0, $2)) { msg(MSG_ERROR, "Can not set filter \"%s\"", $2); YYABORT; } ; }
 	| DYNAMICTOK STRING 				{ if (!nfd_prof_set_dynamic($<nfd_profile>0, $2)) { msg(MSG_ERROR, "Can not set dynamic \"%s\"", $2); YYABORT; } ; }
+	| LIMITTOK NUMBER BITPSTOK 			{ $<nfd_profile>0->limits.bytes = $2; }
+	| LIMITTOK NUMBER PPSTOK 			{ $<nfd_profile>0->limits.pkts  = $2; }
+	| LIMITTOK NUMBER FPSTOK 			{ $<nfd_profile>0->limits.flows = $2; }
 	| LIMITTOK NUMBER FACTOR BITPSTOK 	{ $<nfd_profile>0->limits.bytes = ($2 * $3) / 8; }
 	| LIMITTOK NUMBER FACTOR PPSTOK 	{ $<nfd_profile>0->limits.pkts  = $2 * $3; }
 	| LIMITTOK NUMBER FACTOR FPSTOK 	{ $<nfd_profile>0->limits.flows = $2 * $3; }
