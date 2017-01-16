@@ -1562,7 +1562,7 @@ yyreduce:
   case 21:
 /* Line 1792 of yacc.c  */
 #line 118 "config.y"
-    { (yyval.nfd_profile) = nfd_prof_new((yyvsp[(2) - (3)].string)); if (!(yyval.nfd_profile)) { YYABORT; } else { nfd_prof_add(&opt->dump_root_profile, (yyval.nfd_profile)); }; }
+    { (yyval.nfd_profile) = nfd_prof_new((yyvsp[(2) - (3)].string)); if (!(yyval.nfd_profile)) { YYABORT; } else { nfd_prof_add(&opt->root_profile, (yyval.nfd_profile)); }; }
     break;
 
   case 22:

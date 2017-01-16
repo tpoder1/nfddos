@@ -86,30 +86,32 @@ void read_data_loop(nfd_options_t *opt) {
 
 	while (lnf_ring_read(ringp, recp) != LNF_EOF) {
 
-		pthread_mutex_lock(&opt->read_lock);
 
 		/* match general filter */
 		if (opt->filter != NULL && !lnf_filter_match(opt->filter, recp)) {
-			pthread_mutex_unlock(&opt->read_lock);
 			continue;
 		}
 
+		pthread_mutex_lock(&opt->read_profile_lock);
 
-		profp = opt->read_root_profile;
+		profp = opt->root_profile;
 
 		while (profp != NULL) {
 			nfd_prof_add_flow(profp, recp);
 			profp = profp->next_profile;
-		}	
+		}
+
+		pthread_mutex_unlock(&opt->read_profile_lock);
 
 		/* store flow in queue */
+		pthread_mutex_lock(&opt->queue_lock);
 		if (opt->queue_file != NULL) {
 			if (lnf_write(opt->queue_file, recp) != LNF_OK) {
 				msg(MSG_ERROR, "Can not store flow record in queuefile");
 			}
 		}
+		pthread_mutex_unlock(&opt->queue_lock);
 
-		pthread_mutex_unlock(&opt->read_lock);
 	}
 
 	lnf_ring_free(ringp);
@@ -118,55 +120,13 @@ void read_data_loop(nfd_options_t *opt) {
 
 void dump_data_loop(nfd_options_t *opt) {
 	
-	nfd_profile_t *tmp;
+	//nfd_profile_t *tmp;
 	int last_switched = 0;
 	int remains;
 
+	last_switched = time(NULL);
+
 	while (1) { 
-
-		/* load new profiles configuration into dump profile taht will be read profile in while  */
-		pthread_mutex_lock(&opt->read_lock);
-		nfd_cfg_parse(opt);
-		pthread_mutex_unlock(&opt->read_lock);
-
-		if (opt->db_profiles) {
-			nfd_db_load_profiles(&opt->db, &opt->dump_root_profile);
-		}
-
-		opt->last_window_size = time(NULL) - last_switched;
-		msg(MSG_DEBUG, "Last windows size %d", opt->last_window_size);
-
-		/* switch read and dump profile */
-		msg(MSG_DEBUG, "Switching read and dump profiles");
-		pthread_mutex_lock(&opt->read_lock);
-		pthread_mutex_lock(&opt->dump_lock);
-
-		tmp = opt->read_root_profile;
-		opt->read_root_profile = opt->dump_root_profile;
-		opt->dump_root_profile = tmp;
-
-		/* rotate queuefiles */
-		nfd_queue_shift(opt);
-
-		pthread_mutex_unlock(&opt->read_lock);
-		pthread_mutex_unlock(&opt->dump_lock);
-
-		last_switched = time(NULL);
-
-		/* drump actual dump profile (previous read profile) into DB  */
-		nfd_prof_dump_all(opt);
-		db_export_profiles(opt, &opt->dump_root_profile);
-
-		nfd_act_expire(opt, &opt->actions, opt->stop_delay);
-
-		/* update counters */
-		
-		msg(MSG_DEBUG, "Starting counters update");
-
-//		nfd_db_update_counters(&opt->db);
-
-		msg(MSG_DEBUG, "Finished counters update");
-	
 
 		/* wait rest of the time */
 		remains = opt->window_size - (time(NULL) - last_switched);
@@ -178,6 +138,51 @@ void dump_data_loop(nfd_options_t *opt) {
 		} else {
 			msg(MSG_ERROR, "Performance issue: can not process data in time window, missing %d seconds", -1 * remains);
 		}
+
+		/* load new profiles configuration into dump profile taht will be read profile in while  */
+		/*
+		pthread_mutex_lock(&opt->read_lock);
+		if (opt->dump_root_profile == NULL) {
+			nfd_cfg_parse(opt);
+		}
+
+		pthread_mutex_unlock(&opt->read_lock);
+		*/
+
+/*
+		if (opt->db_profiles) {
+			nfd_db_load_profiles(&opt->db, &opt->dump_root_profile);
+		}
+*/
+
+		opt->last_window_size = time(NULL) - last_switched;
+		msg(MSG_DEBUG, "Last windows size %d", opt->last_window_size);
+
+		/* rotate queuefiles */
+		pthread_mutex_lock(&opt->queue_lock);
+		nfd_queue_shift(opt);
+		pthread_mutex_unlock(&opt->queue_lock);
+
+		last_switched = time(NULL);
+
+		pthread_mutex_lock(&opt->dump_profile_lock);
+
+		/* drump actual dump profile (previous read profile) into DB  */
+		nfd_prof_dump_all(opt);
+
+		/* evaluate and export profiles */
+		nfd_prof_eval_all(opt, &opt->root_profile);
+
+		pthread_mutex_unlock(&opt->dump_profile_lock);
+
+
+		nfd_act_expire(opt, &opt->actions, opt->stop_delay);
+
+		/* update counters */
+		
+//		msg(MSG_DEBUG, "Starting DB counters update");
+//		nfd_db_update_counters(&opt->db);
+//		msg(MSG_DEBUG, "Finished DB counters update");
 
 	
 	} // main loop 
@@ -200,8 +205,7 @@ int main(int argc, char *argv[]) {
 //		.treshold = 0.8,
 		.export_interval = 10,
 		.export_min_pps = 1,
-		.read_root_profile = NULL,
-		.dump_root_profile = NULL,
+		.root_profile = NULL,
 		.max_actions = 512,
 		.queue_num = 10,
 		.queue_backtrack = 1
@@ -266,15 +270,19 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* prepare thread locks */
-	if (pthread_mutex_init(&opt.read_lock, NULL) != 0 || pthread_mutex_init(&opt.dump_lock, NULL) != 0) {
-		msg(MSG_ERROR, "Canot init mutexes %s:%d", __FILE__, __LINE__);
+	if (pthread_mutex_init(&opt.read_profile_lock, NULL) != 0 || pthread_mutex_init(&opt.dump_profile_lock, NULL) != 0) {
+		msg(MSG_ERROR, "Canot init mutex %s:%d", __FILE__, __LINE__);
 		exit(1);
 	}
 	
-	/* load profiles for first run */
-	if (opt.db_profiles) {
-		nfd_db_load_profiles(&opt.db, &opt.read_root_profile);
+	if (pthread_mutex_init(&opt.queue_lock, NULL) != 0) {
+		msg(MSG_ERROR, "Canot init mutex %s:%d", __FILE__, __LINE__);
+		exit(1);
 	}
+	/* load profiles for first run */
+//	if (opt.db_profiles) {
+//		nfd_db_load_profiles(&opt.db, &opt.root_profile);
+//	}
 
 	/* execute therad with read loop */
 	if (pthread_create(&opt.read_thread, NULL, (void *)&read_data_loop, (void *)&opt) != 0) {

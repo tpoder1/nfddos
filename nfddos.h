@@ -40,10 +40,14 @@ typedef struct nfd_profile_s {
 //	histc_t hcounter;				/* histogram counter */
 	nfd_counter_t counters;			/* profile counters */
 	nfd_counter_t limits;			/* profile limits */
-	lnf_mem_t *mem;					/* aggregation unit */
+	lnf_mem_t *mem_dump;			/* dump aggregation unit */
+	lnf_mem_t *mem_read;			/* read aggregation unit */
 	int dynamic_fields[MAX_AGGR_FIELDS];	/* array of aggregation fields (last field 0 ) */
 
+	pthread_mutex_t lock;			/* profile lock*/
 	struct nfd_profile_s  *next_profile;
+	struct nfd_profile_s  *parent_profile;
+	
 
 } nfd_profile_t;
 
@@ -125,14 +129,15 @@ typedef struct nfd_options_s {
 	int	max_actions;				/* max number of actions */
 	nfd_actions_t	actions;		/* reference to action structure */
 
-	nfd_profile_t  *read_root_profile;	/* root profile where data are filled in */
-	nfd_profile_t  *dump_root_profile;	/* root profile which is dumped into DB */
+	nfd_profile_t  *root_profile;	/* root profile where data are filled in */
+//	nfd_profile_t  *dump_root_profile;	/* root profile which is dumped into DB */
 
 	pthread_t read_thread;			/* read loop */
 	pthread_t counter_thread;		/* counter loop */
 
-	pthread_mutex_t read_lock;		/* lock for fill thread */
-	pthread_mutex_t dump_lock;		/* lock for dump thread */
+	pthread_mutex_t read_profile_lock;	/* general profile lock for read thread  */
+	pthread_mutex_t dump_profile_lock;	/* general profile loc for dump thread  */
+	pthread_mutex_t queue_lock;			/* general queue lock */
 
 } nfd_options_t;
 
@@ -146,7 +151,8 @@ int nfd_prof_dump(nfd_options_t *opt, FILE *fh, nfd_profile_t *profp);
 int nfd_prof_dump_all(nfd_options_t *opt);
 nfd_profile_t * nfd_prof_new(char *name);
 int nfd_prof_add_flow(nfd_profile_t *profp, lnf_rec_t *recp);
-int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile);
+//int db_export_profiles(nfd_options_t *opt, nfd_profile_t **root_profile);
+int nfd_prof_eval_all(nfd_options_t *opt, nfd_profile_t **root_profile);
 int nfd_prof_set_filter(nfd_profile_t *profp, char *filter); 
 int nfd_prof_set_dynamic(nfd_profile_t *profp, char *fields);
 int nfd_prof_add(nfd_profile_t **root_profile, nfd_profile_t *profp);

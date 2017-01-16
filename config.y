@@ -115,7 +115,7 @@ rules: /* empty */
 	| rules rule;
 
 rule: 
-	| PROFILETOK STRING OBRACE { $<nfd_profile>$ = nfd_prof_new($2); if (!$<nfd_profile>$) { YYABORT; } else { nfd_prof_add(&opt->dump_root_profile, $<nfd_profile>$); }; } ruleparams EBRACE	{ ;  } 
+	| PROFILETOK STRING OBRACE { $<nfd_profile>$ = nfd_prof_new($2); if (!$<nfd_profile>$) { YYABORT; } else { nfd_prof_add(&opt->root_profile, $<nfd_profile>$); }; } ruleparams EBRACE	{ ;  } 
 	| PROFILETOK DBTOK SEMICOLON { opt->db_profiles = 1; }
 	;
 

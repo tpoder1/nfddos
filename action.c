@@ -36,7 +36,7 @@ int nfd_act_dump(nfd_options_t *opt, FILE *fh, nfd_action_t *a) {
 		fprintf(fh, "dynamic_traffic:     %10llu ", (LLUI)a->counters.bytes / opt->last_window_size);
 		fprintf(fh, "%6llu ", (LLUI)a->counters.pkts / opt->last_window_size);
 		fprintf(fh, "%6llu ", (LLUI)a->counters.flows / opt->last_window_size);
-		fprintf(fh, "(%llu Mb/s, ", ((8 * (LLUI)a->counters.bytes) / opt->last_window_size) / 1000 / 1000);
+		fprintf(fh, "(%llu Mb/s, ", (8 * ((LLUI)a->counters.bytes / opt->last_window_size) / 1000 / 1000));
 		fprintf(fh, "%llu kp/s, ", ((LLUI)a->counters.pkts / opt->last_window_size) / 1000 );
 		fprintf(fh, "%llu flow/s)\n", (LLUI)a->counters.flows / opt->last_window_size);
     }
@@ -304,6 +304,7 @@ int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, nfd_dyn_profi
 	int over_limit = 0;
 	int w = opt->last_window_size;
 
+	pthread_mutex_lock(&profp->lock);
 	/* check limits */
 	if (profp->limits.bytes != 0 && profp->limits.bytes <= c->bytes / w) {
 		over_limit = 1;
@@ -316,6 +317,8 @@ int nfd_act_eval_profile(nfd_options_t *opt, nfd_profile_t *profp, nfd_dyn_profi
 	if (profp->limits.flows != 0 && profp->limits.flows <= c->flows / w) {
 		over_limit = 1;
 	}
+
+	pthread_mutex_unlock(&profp->lock);
 
 	if (!over_limit) {
 		/* nothing to do */ 
