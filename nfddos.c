@@ -139,16 +139,6 @@ void dump_data_loop(nfd_options_t *opt) {
 			msg(MSG_ERROR, "Performance issue: can not process data in time window, missing %d seconds", -1 * remains);
 		}
 
-		/* load new profiles configuration into dump profile taht will be read profile in while  */
-		/*
-		pthread_mutex_lock(&opt->read_lock);
-		if (opt->dump_root_profile == NULL) {
-			nfd_cfg_parse(opt);
-		}
-
-		pthread_mutex_unlock(&opt->read_lock);
-		*/
-
 /*
 		if (opt->db_profiles) {
 			nfd_db_load_profiles(&opt->db, &opt->dump_root_profile);
